@@ -10,7 +10,10 @@ def deduplicate_dataset(df):
 
     initial_count = len(df)
     print(f"Starting deduplication for {initial_count} records...")
-
+    
+    # Create a copy to avoid chained assignment warnings
+    df = df.copy()
+    
     # Clean up DOIs and Titles for better matching
     if "doi" in df.columns:
         df["doi_clean"] = df["doi"].fillna("").astype(str).str.lower().str.strip()

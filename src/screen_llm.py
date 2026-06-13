@@ -36,9 +36,12 @@ def screen_papers(df, config):
     if df.empty:
         return df
 
-    api_key = config.get("api_key") or os.environ.get("GROQ_API_KEY")
+    api_key = os.environ.get("GROQ_API_KEY")
     if not api_key or api_key == "YOUR_GROQ_API_KEY_HERE":
-        print("ERROR: Please provide a valid Groq API Key in config.yaml")
+        api_key = config.get("api_key")
+
+    if not api_key or api_key == "YOUR_GROQ_API_KEY_HERE":
+        print("ERROR: Please provide a valid Groq API Key in .env or config.yaml")
         return df
 
     client = Groq(api_key=api_key)

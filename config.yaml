@@ -1,23 +1,29 @@
-project_name: "LLM_Productivity_Review"
-
-# Define the model and API Key for Groq Cloud
-llm_model: "llama-3.1-8b-instant"
-api_key: "YOUR_GROQ_API_KEY_HERE"
-max_results: 10
-
-# Search queries for automated APIs
-search_queries:
-  openalex: "large language models AND software developer productivity"
-  pubmed: '"large language models"[Title/Abstract] AND "productivity"[Title/Abstract]'
-
-# Screening Criteria
-inclusion_criteria:
-  - "Published in 2022 or later."
-  - "Directly measures software developer productivity (e.g., time to complete a task, bug resolution rate)."
-  - "Involves the use of generative AI or LLMs (e.g., GitHub Copilot, ChatGPT)."
-  - "Is primary research, an empirical study, or a controlled experiment."
-
+api_key: YOUR_GROQ_API_KEY_HERE
 exclusion_criteria:
-  - "Review papers, opinion pieces, or theoretical essays."
-  - "Focuses purely on AI model architecture rather than human developer productivity."
-  - "Non-English papers."
+- Are not related to clinical or biomedical text
+- Do not involve NER or ontology mapping techniques
+- Lack evaluation or experimental results
+- Are review papers without methodological contributions (unless used for background
+  only)
+- Are editorials, opinions, or abstracts only
+- Are non-English publications
+inclusion_criteria:
+- Focus on clinical text, electronic health records, or medical documentation
+- Involve Named Entity Recognition (NER), entity extraction, or ontology mapping
+- Use or evaluate medical ontologies such as SNOMED CT, ICD-10, or ICD-11
+- Provide evaluation metrics (e.g., precision, recall, F1-score, accuracy)
+- Published in peer-reviewed journals or conferences
+- Published between 2020 and 2026
+- Written in English
+- Studies applicable to Sri Lanka or similar healthcare contexts (resource-constrained
+  or South Asian settings)
+llm_model: llama-3.1-8b-instant
+max_results: 5
+project_name: LLM_Productivity_Review
+search_queries:
+  openalex: ("clinical notes" OR "clinical text" OR "electronic health records" OR
+    EHR OR EMR OR "discharge summaries") AND ("named entity recognition" OR NER OR
+    "clinical NLP" OR "information extraction" OR "entity extraction")
+  pubmed: ("clinical notes" OR "clinical text" OR "electronic health records" OR EHR
+    OR EMR OR "discharge summaries") AND ("named entity recognition" OR NER OR "clinical
+    NLP" OR "information extraction" OR "entity extraction")
