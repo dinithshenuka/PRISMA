@@ -1,0 +1,22 @@
+project_name: "LLM_Productivity_Review"
+
+# Define the model and API Key for Groq Cloud
+llm_model: "llama3-8b-8192"
+api_key: "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"
+
+# Search queries for automated APIs
+search_queries:
+  openalex: "large language models AND software developer productivity"
+  pubmed: '"large language models"[Title/Abstract] AND "productivity"[Title/Abstract]'
+
+# Screening Criteria
+inclusion_criteria:
+  - "Published in 2022 or later."
+  - "Directly measures software developer productivity (e.g., time to complete a task, bug resolution rate)."
+  - "Involves the use of generative AI or LLMs (e.g., GitHub Copilot, ChatGPT)."
+  - "Is primary research, an empirical study, or a controlled experiment."
+
+exclusion_criteria:
+  - "Review papers, opinion pieces, or theoretical essays."
+  - "Focuses purely on AI model architecture rather than human developer productivity."
+  - "Non-English papers."
