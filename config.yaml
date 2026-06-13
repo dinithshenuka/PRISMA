@@ -3,6 +3,7 @@ project_name: "LLM_Productivity_Review"
 # Define the model and API Key for Groq Cloud
 llm_model: "llama-3.1-8b-instant"
 api_key: "YOUR_GROQ_API_KEY_HERE"
+max_results: 10
 
 # Search queries for automated APIs
 search_queries:
