@@ -25,8 +25,8 @@ PAPER ABSTRACT: {abstract}
 Evaluate if the paper meets ALL inclusion criteria and NO exclusion criteria. 
 Respond ONLY with a valid JSON object matching this schema exactly:
 {{
-    "decision": "INCLUDE" or "EXCLUDE",
-    "reason": "A one-sentence explanation of why it was included or excluded."
+    "decision": "INCLUDE" or "EXCLUDE" or "NOT SURE",
+    "reason": "A one-sentence explanation of why it was included, excluded, or why you are not sure."
 }}
 """
     return prompt

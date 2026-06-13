@@ -1,23 +1,20 @@
-import yaml
 from src.ingest_apis import run_api_ingestion
 from src.ingest_manual import load_manual_files
 from src.deduplicate import deduplicate_dataset
 from src.screen_llm import screen_papers
 from src.report import generate_prisma_report
+from src.db import get_project_config
 import pandas as pd
 import warnings
+from dotenv import load_dotenv
 
 warnings.filterwarnings("ignore")
-
-
-def load_config(config_path="config.yaml"):
-    with open(config_path, "r") as file:
-        return yaml.safe_load(file)
+load_dotenv()
 
 
 def main():
     print("=== Starting PrismAI Pipeline ===")
-    config = load_config()
+    config = get_project_config("Default_Project")
     print(f"Project: {config.get('project_name')}")
 
     # 1. Ingestion Phase

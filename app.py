@@ -1,5 +1,4 @@
 import streamlit as st
-import yaml
 import os
 import pandas as pd
 from dotenv import load_dotenv
@@ -12,27 +11,16 @@ from src.ingest_manual import load_manual_files
 from src.deduplicate import deduplicate_dataset
 from src.screen_llm import screen_papers
 from src.report import generate_prisma_report
+from src.db import get_project_config, save_project_config
 
 # Page Config
-st.set_page_config(page_title="PrismAI", page_icon="🔍", layout="wide")
+st.set_page_config(page_title="PrismAI", layout="wide")
 st.title("PrismAI: Automated PRISMA Screening")
-st.markdown(
-    "Easily perform systematic reviews using open databases and local/cloud AI."
-)
+st.markdown("Easily perform systematic reviews using open databases and cloud AI.")
 
-
-# Load current config
-def load_config():
-    with open("config.yaml", "r") as file:
-        return yaml.safe_load(file)
-
-
-def save_config(config):
-    with open("config.yaml", "w") as file:
-        yaml.dump(config, file, default_flow_style=False)
-
-
-config = load_config()
+# We can let the user pick a project to load, or default to Default_Project
+project_select = st.sidebar.text_input("Project Name to Load/Create", "Default_Project")
+config = get_project_config(project_select)
 
 # Sidebar
 st.sidebar.header("Data Sources")
@@ -43,7 +31,7 @@ st.sidebar.markdown(
     "2. To include **Scopus, Embase, IEEE**, or **ACM**, drop your CSV files into the `data/raw` folder."
 )
 st.sidebar.markdown(
-    f"**Current API Key Loaded:** {'✅ Yes' if os.environ.get('GROQ_API_KEY') else '❌ No (.env missing)'}"
+    f"**Current API Key Loaded:** {'Yes' if os.environ.get('GROQ_API_KEY') else 'No (.env missing)'}"
 )
 
 # Main Configuration Area
@@ -52,7 +40,7 @@ st.subheader("1. Project Configuration")
 col1, col2 = st.columns(2)
 with col1:
     project_name = st.text_input(
-        "Project Name", config.get("project_name", "My_Review")
+        "Project Name", config.get("project_name", "Default_Project")
     )
     llm_model = st.text_input(
         "LLM Model (Groq)", config.get("llm_model", "llama-3.1-8b-instant")
@@ -96,7 +84,7 @@ with col4:
 st.divider()
 st.subheader("3. Run Pipeline")
 
-if st.button("🚀 Start Screening", type="primary", use_container_width=True):
+if st.button("Start Screening", type="primary", use_container_width=True):
     if not os.environ.get("GROQ_API_KEY"):
         st.error("Missing GROQ_API_KEY in .env file! Please add it before running.")
     else:
@@ -112,7 +100,7 @@ if st.button("🚀 Start Screening", type="primary", use_container_width=True):
         config["exclusion_criteria"] = [
             x.strip() for x in exc_text.split("\n") if x.strip()
         ]
-        save_config(config)
+        save_project_config(config)
 
         # UI Status Updates
         status_text = st.empty()
@@ -145,7 +133,7 @@ if st.button("🚀 Start Screening", type="primary", use_container_width=True):
             generate_prisma_report(df_screened, initial_counts, duplicates_removed)
             progress_bar.progress(100)
 
-            status_text.success("✅ Screening Complete!")
+            status_text.success("Screening Complete!")
 
             # Show Results
             included_count = len(df_screened[df_screened["ai_decision"] == "INCLUDE"])
@@ -165,6 +153,11 @@ if st.button("🚀 Start Screening", type="primary", use_container_width=True):
                 )
             else:
                 st.warning("No papers met the inclusion criteria.")
+
+            if os.path.exists("data/processed/prisma_flowchart.png"):
+                st.image(
+                    "data/processed/prisma_flowchart.png", caption="PRISMA Flow Diagram"
+                )
 
         except Exception as e:
             status_text.error(f"An error occurred: {e}")
