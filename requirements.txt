@@ -1,6 +1,8 @@
 pandas==2.2.2
 requests==2.31.0
-biopython==1.83
-groq==0.5.0
+requests==2.31.0
+groq
 pyyaml==6.0.1
 tqdm==4.66.2
+streamlit
+python-dotenv

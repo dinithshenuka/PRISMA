@@ -1,6 +1,6 @@
 import requests
 import pandas as pd
-from Bio import Entrez
+import xml.etree.ElementTree as ET
 import time
 
 def fetch_openalex(query, max_results=100):
@@ -47,43 +47,51 @@ def fetch_openalex(query, max_results=100):
 
 def fetch_pubmed(query, max_results=100):
     print(f"Fetching from PubMed with query: {query}")
-    Entrez.email = "example@example.com"  # Always provide an email to NCBI
+    email = "example@example.com"
     papers = []
     
     try:
-        handle = Entrez.esearch(db="pubmed", term=query, retmax=max_results)
-        record = Entrez.read(handle)
-        handle.close()
+        # Step 1: ESearch
+        search_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={requests.utils.quote(query)}&retmax={max_results}&retmode=json&email={email}"
+        response = requests.get(search_url)
+        response.raise_for_status()
+        search_data = response.json()
         
-        id_list = record["IdList"]
+        id_list = search_data.get("esearchresult", {}).get("idlist", [])
         if not id_list:
             print("No papers found in PubMed.")
             return pd.DataFrame(papers)
             
-        handle = Entrez.efetch(db="pubmed", id=id_list, retmode="xml")
-        records = Entrez.read(handle)
-        handle.close()
+        # Step 2: EFetch
+        ids_str = ",".join(id_list)
+        fetch_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id={ids_str}&retmode=xml&email={email}"
+        fetch_resp = requests.get(fetch_url)
+        fetch_resp.raise_for_status()
         
-        for article in records.get("PubmedArticle", []):
-            medline_citation = article.get("MedlineCitation", {})
-            article_data = medline_citation.get("Article", {})
-            
-            title = article_data.get("ArticleTitle", "")
-            
-            abstract_texts = article_data.get("Abstract", {}).get("AbstractText", [])
-            abstract = " ".join([str(text) for text in abstract_texts]) if abstract_texts else ""
-            
+        # Parse XML
+        root = ET.fromstring(fetch_resp.content)
+        
+        for article in root.findall(".//PubmedArticle"):
+            title = ""
+            title_node = article.find(".//ArticleTitle")
+            if title_node is not None and title_node.text:
+                title = title_node.text
+                
+            abstract = ""
+            abstract_texts = article.findall(".//AbstractText")
+            if abstract_texts:
+                abstract = " ".join([node.text for node in abstract_texts if node.text])
+                
             doi = ""
-            for el in article.get("PubmedData", {}).get("ArticleIdList", []):
-                if el.attributes.get("IdType") == "doi":
-                    doi = str(el)
+            for el in article.findall(".//ArticleId"):
+                if el.get("IdType") == "doi" and el.text:
+                    doi = el.text
                     break
                     
             year = ""
-            try:
-                year = article_data.get("Journal", {}).get("JournalIssue", {}).get("PubDate", {}).get("Year", "")
-            except:
-                pass
+            year_node = article.find(".//PubDate/Year")
+            if year_node is not None and year_node.text:
+                year = year_node.text
                 
             if title and abstract:
                 papers.append({
