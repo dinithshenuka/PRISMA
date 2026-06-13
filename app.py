@@ -137,22 +137,28 @@ if st.button("Start Screening", type="primary", use_container_width=True):
 
             # Show Results
             included_count = len(df_screened[df_screened["ai_decision"] == "INCLUDE"])
+            notsure_count = len(df_screened[df_screened["ai_decision"] == "NOT SURE"])
+            
+            st.subheader("Screening Results")
             st.metric("Total Papers Included", included_count)
-
+            st.metric("Papers Marked 'NOT SURE'", notsure_count)
+            
+            # Show full interactive table with all decisions
+            st.markdown("### All Screened Papers")
+            st.dataframe(df_screened[["title", "doi", "ai_decision", "ai_reason"]])
+            
+            csv_all = df_screened.to_csv(index=False).encode("utf-8")
+            st.download_button("Download Full Results (CSV)", data=csv_all, file_name="all_screened_papers.csv", mime="text/csv")
+            
             if included_count > 0:
                 included_df = df_screened[df_screened["ai_decision"] == "INCLUDE"]
-                st.dataframe(included_df[["title", "doi", "ai_reason"]])
-
-                # Download Button
-                csv = included_df.to_csv(index=False).encode("utf-8")
-                st.download_button(
-                    "Download Included Papers (CSV)",
-                    data=csv,
-                    file_name="included_papers.csv",
-                    mime="text/csv",
-                )
-            else:
-                st.warning("No papers met the inclusion criteria.")
+                csv_inc = included_df.to_csv(index=False).encode("utf-8")
+                st.download_button("Download ONLY Included Papers", data=csv_inc, file_name="included_papers.csv", mime="text/csv")
+                
+            if notsure_count > 0:
+                notsure_df = df_screened[df_screened["ai_decision"] == "NOT SURE"]
+                csv_not = notsure_df.to_csv(index=False).encode("utf-8")
+                st.download_button("Download ONLY 'Not Sure' Papers", data=csv_not, file_name="notsure_papers.csv", mime="text/csv")
 
             if os.path.exists("data/processed/prisma_flowchart.png"):
                 st.image(
