@@ -17,9 +17,16 @@ def init_db():
             openalex_query TEXT,
             pubmed_query TEXT,
             inclusion_criteria TEXT,
-            exclusion_criteria TEXT
+            exclusion_criteria TEXT,
+            year_start INTEGER,
+            year_end INTEGER
         )
     """)
+    try:
+        cursor.execute("ALTER TABLE projects ADD COLUMN year_start INTEGER DEFAULT 2020")
+        cursor.execute("ALTER TABLE projects ADD COLUMN year_end INTEGER DEFAULT 2026")
+    except sqlite3.OperationalError:
+        pass
     conn.commit()
     conn.close()
 
@@ -60,6 +67,8 @@ def get_project_config(project_name="Default_Project"):
             "search_queries": {"openalex": "", "pubmed": ""},
             "inclusion_criteria": [],
             "exclusion_criteria": [],
+            "year_start": 2020,
+            "year_end": 2026
         }
 
 
@@ -74,10 +83,10 @@ def save_project_config(config):
     cursor.execute(
         """
         INSERT OR REPLACE INTO projects (
-            id, project_name, llm_model, max_results, openalex_query, pubmed_query, inclusion_criteria, exclusion_criteria
+            id, project_name, llm_model, max_results, openalex_query, pubmed_query, inclusion_criteria, exclusion_criteria, year_start, year_end
         ) VALUES (
             (SELECT id FROM projects WHERE project_name = ?),
-            ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
     """,
         (
@@ -89,6 +98,8 @@ def save_project_config(config):
             config.get("search_queries", {}).get("pubmed", ""),
             inc_str,
             exc_str,
+            config.get("year_start", 2020),
+            config.get("year_end", 2026)
         ),
     )
     conn.commit()

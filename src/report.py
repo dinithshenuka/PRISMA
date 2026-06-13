@@ -61,16 +61,8 @@ SCREENING PHASE:
         dot.attr(rankdir="TB", size="8,10")
 
         # Identification
-        dot.node(
-            "A",
-            f'Records identified through\\ndatabase searching\\n(n = {initial_counts.get("api", 0)})',
-            shape="box",
-        )
-        dot.node(
-            "B",
-            f'Additional records identified\\nthrough other sources\\n(n = {initial_counts.get("manual", 0)})',
-            shape="box",
-        )
+        dot.node('A', f'Records identified through\\ndatabase searching\\n(n = {initial_counts.get("api", 0)})\\nOpenAlex: {initial_counts.get("openalex", 0)}\\nPubMed: {initial_counts.get("pubmed", 0)}', shape='box')
+        dot.node('B', f'Additional records identified\\nthrough other sources\\n(n = {initial_counts.get("manual", 0)})', shape='box')
         dot.node(
             "C",
             f"Records after duplicates removed\\n(n = {screened_count})",

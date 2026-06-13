@@ -45,14 +45,23 @@ with col1:
     llm_model = st.text_input(
         "LLM Model (Groq)", config.get("llm_model", "llama-3.1-8b-instant")
     )
-    max_results = int(
-        st.number_input(
-            "Max Papers to Fetch (per database)",
-            min_value=1,
-            max_value=1000,
-            value=config.get("max_results", 10),
+    col1_a, col1_b = st.columns(2)
+    with col1_a:
+        max_results = int(
+            st.number_input(
+                "Max Papers to Fetch",
+                min_value=1,
+                max_value=1000,
+                value=config.get("max_results", 10),
+            )
         )
-    )
+    with col1_b:
+        year_range = st.slider(
+            "Publication Year",
+            1990, 2030,
+            (config.get("year_start", 2020), config.get("year_end", 2026))
+        )
+        year_start, year_end = year_range
 
 with col2:
     st.markdown("**Search Queries**")
@@ -92,6 +101,8 @@ if st.button("Start Screening", type="primary", use_container_width=True):
         config["project_name"] = project_name
         config["llm_model"] = llm_model
         config["max_results"] = max_results
+        config["year_start"] = year_start
+        config["year_end"] = year_end
         config["search_queries"]["openalex"] = query_openalex
         config["search_queries"]["pubmed"] = query_pubmed
         config["inclusion_criteria"] = [
@@ -108,11 +119,13 @@ if st.button("Start Screening", type="primary", use_container_width=True):
 
         try:
             status_text.info("Phase 1: Fetching papers from databases...")
-            df_api = run_api_ingestion(config)
+            df_api, api_counts = run_api_ingestion(config)
             df_manual = load_manual_files()
             df_combined = pd.concat([df_api, df_manual], ignore_index=True)
             initial_counts = {
                 "api": len(df_api),
+                "openalex": api_counts['openalex'],
+                "pubmed": api_counts['pubmed'],
                 "manual": len(df_manual),
                 "total": len(df_combined),
             }
@@ -145,7 +158,7 @@ if st.button("Start Screening", type="primary", use_container_width=True):
             
             # Show full interactive table with all decisions
             st.markdown("### All Screened Papers")
-            st.dataframe(df_screened[["title", "doi", "ai_decision", "ai_reason"]])
+            st.dataframe(df_screened[["title", "doi", "source", "ai_decision", "ai_reason"]])
             
             csv_all = df_screened.to_csv(index=False).encode("utf-8")
             st.download_button("Download Full Results (CSV)", data=csv_all, file_name="all_screened_papers.csv", mime="text/csv")

@@ -4,9 +4,9 @@ import xml.etree.ElementTree as ET
 import time
 
 
-def fetch_openalex(query, max_results=100):
+def fetch_openalex(query, year_start, year_end, max_results=100):
     print(f"Fetching from OpenAlex with query: {query}")
-    url = f"https://api.openalex.org/works?search={query}&per-page=50"
+    url = f"https://api.openalex.org/works?search={requests.utils.quote(query)}&filter=from_publication_date:{year_start}-01-01,to_publication_date:{year_end}-12-31&per-page=50"
     papers = []
 
     try:
@@ -53,14 +53,16 @@ def fetch_openalex(query, max_results=100):
     return pd.DataFrame(papers)
 
 
-def fetch_pubmed(query, max_results=100):
-    print(f"Fetching from PubMed with query: {query}")
+def fetch_pubmed(query, year_start, year_end, max_results=100):
+    date_filter = f" AND (\"{year_start}/01/01\"[Date - Publication] : \"{year_end}/12/31\"[Date - Publication])"
+    full_query = query + date_filter
+    print(f"Fetching from PubMed with query: {full_query}")
     email = "example@example.com"
     papers = []
 
     try:
         # Step 1: ESearch
-        search_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={requests.utils.quote(query)}&retmax={max_results}&retmode=json&email={email}"
+        search_url = f"https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term={requests.utils.quote(full_query)}&retmax={max_results}&retmode=json&email={email}"
         response = requests.get(search_url)
         response.raise_for_status()
         search_data = response.json()
@@ -123,16 +125,19 @@ def run_api_ingestion(config):
     df_pubmed = pd.DataFrame()
 
     max_results = config.get("max_results", 100)
+    year_start = config.get("year_start", 2020)
+    year_end = config.get("year_end", 2026)
 
     if "openalex" in config["search_queries"]:
         df_openalex = fetch_openalex(
-            config["search_queries"]["openalex"], max_results=max_results
+            config["search_queries"]["openalex"], year_start, year_end, max_results=max_results
         )
 
     if "pubmed" in config["search_queries"]:
         df_pubmed = fetch_pubmed(
-            config["search_queries"]["pubmed"], max_results=max_results
+            config["search_queries"]["pubmed"], year_start, year_end, max_results=max_results
         )
 
     df_combined = pd.concat([df_openalex, df_pubmed], ignore_index=True)
-    return df_combined
+    counts = {'openalex': len(df_openalex), 'pubmed': len(df_pubmed)}
+    return df_combined, counts

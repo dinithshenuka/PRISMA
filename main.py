@@ -19,12 +19,14 @@ def main():
 
     # 1. Ingestion Phase
     print("\n--- PHASE 1: IDENTIFICATION ---")
-    df_api = run_api_ingestion(config)
+    df_api, api_counts = run_api_ingestion(config)
     df_manual = load_manual_files()
 
     df_combined = pd.concat([df_api, df_manual], ignore_index=True)
     initial_counts = {
         "api": len(df_api),
+        "openalex": api_counts['openalex'],
+        "pubmed": api_counts['pubmed'],
         "manual": len(df_manual),
         "total": len(df_combined),
     }
