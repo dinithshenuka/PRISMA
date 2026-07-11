@@ -49,6 +49,11 @@ def init_db() -> None:
         )
     ''')
 
+    # Migration: add source_db column to existing databases that predate it
+    existing_columns = {row[1] for row in cursor.execute("PRAGMA table_info(papers)")}
+    if 'source_db' not in existing_columns:
+        cursor.execute("ALTER TABLE papers ADD COLUMN source_db TEXT")
+
     conn.commit()
     conn.close()
 
