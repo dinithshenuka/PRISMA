@@ -4,8 +4,8 @@ A CLI tool for running a [PRISMA](https://www.prisma-statement.org/) systematic 
 
 ## PRISMA 2020 Documents
 
-- [Checklist](https://www.prisma-statement.org/prisma-2020-checklist)
-- [Expanded checklist](https://www.prisma-statement.org/prisma-2020-expanded-checklist)
+- [Checklist](https://www.prisma-statement.org/s/PRISMA_2020_checklist-ez8t.docx)
+- [Expanded checklist](https://static1.squarespace.com/static/65b880e13b6ca75573dfe217/t/67e61ce66cee8e7f7c59396f/1743133927578/PRISMA_2020_expanded_checklist.pdf)
 - [Flow diagram](https://www.prisma-statement.org/prisma-2020-flow-diagram)
 - [Statement paper](https://www.prisma-statement.org/prisma-2020-statement)
 - [Explanation and elaboration paper](https://www.prisma-statement.org/prisma-2020-explanation-elaboration)
