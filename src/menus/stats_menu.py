@@ -18,9 +18,9 @@ _DRILL_OPTIONS: dict[str, str] = {
 def _print_summary_table(rows: list, project_name: str) -> None:
     """Render the per-database statistics table."""
     print(f"\n  Import Statistics — {project_name}")
-    print("  " + "═" * 74)
-    print(f"  {'Database':<20} {'Total':>6}  {'✅ Incl':>8}  {'❌ Excl':>8}  {'⏭  Skip':>8}  {'🔁 Dup':>8}")
-    print("  " + "─" * 74)
+    print("  " + "═" * 62)
+    print(f"  {'Database':<20} {'Total':>6}  {'✅ Incl':>8}  {'❌ Excl':>8}  {'⏭  Skip':>8}")
+    print("  " + "─" * 62)
 
     totals = [0, 0, 0, 0, 0]
     for r in rows:
@@ -29,8 +29,7 @@ def _print_summary_table(rows: list, project_name: str) -> None:
             f"{r['total']:>6}  "
             f"{r['included']:>8}  "
             f"{r['excluded']:>8}  "
-            f"{r['skipped']:>8}  "
-            f"{r['duplicates']:>8}"
+            f"{r['skipped']:>8}"
         )
         totals[0] += r['total']
         totals[1] += r['included']
@@ -38,16 +37,18 @@ def _print_summary_table(rows: list, project_name: str) -> None:
         totals[3] += r['skipped']
         totals[4] += r['duplicates']
 
-    print("  " + "─" * 74)
+    print("  " + "─" * 62)
     print(
         f"  {'TOTAL':<20} "
         f"{totals[0]:>6}  "
         f"{totals[1]:>8}  "
         f"{totals[2]:>8}  "
-        f"{totals[3]:>8}  "
-        f"{totals[4]:>8}"
+        f"{totals[3]:>8}"
     )
-    print("  " + "═" * 74)
+    print("  " + "═" * 62)
+
+    if totals[4] > 0:
+        print(f"\n  🔁 Total Duplicates Removed: {totals[4]}")
 
 
 def _print_paper_list(papers: list, label: str, icon: str, project_name: str) -> None:

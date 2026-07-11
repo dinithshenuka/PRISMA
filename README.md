@@ -39,10 +39,9 @@ The app is fully menu-driven — no arguments needed.
 2. **Import papers** — drop exported `.csv` or `.ris` files into `data/imports/<project_name>/`. The tool auto-detects the source database and parses accordingly.
 3. **Deduplicate** — scan for exact DOI matches and near-identical titles across all imports. Review each duplicate group and choose which copy to keep.
 4. **Screen by title/abstract** — go through papers one-by-one and mark each as `include`, `exclude`, or `skip`. Open the DOI in your browser mid-session.
-5. **View stats** — see a live breakdown of imported, included, excluded, skipped, and duplicate counts per database, with drill-down paper lists.
+5. **View stats** — see a live breakdown of imported, included, excluded, and skipped counts per database, with drill-down paper lists.
 6. **Full-text retrieval** — open any paper's DOI directly from the project menu to track down PDFs.
 
----
 
 ## Supported Import Formats
 
