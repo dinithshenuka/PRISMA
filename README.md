@@ -1,46 +1,23 @@
 # PRISMA Pipeline Manager
 
-A simple CLI tool to manage a PRISMA systematic literature review workflow using a local SQLite database.
+An interactive CLI tool to manage a PRISMA systematic literature review workflow using a local SQLite database.
 
 ## Folder Structure
 - `src/` - Contains the Python source code (`prisma_cli.py`)
 - `data/` - Contains the local SQLite database (`prisma.db`)
-- `data/imports/` - A recommended place to store your exported `.ris` and `.csv` files before importing.
+- `data/imports/` - A place to store your exported `.ris` and `.csv` files. The app automatically creates a subfolder here for each new project.
 - `archive/` - Old application code.
 
 ## Usage
 
-Run all commands using the script located in `src/`.
+This tool is entirely menu-driven and interactive. You only ever need to run ONE command to launch the app:
 
-### Initialize Database
-*(Already done for you!)*
 ```bash
-python3 src/prisma_cli.py init-db
+python3 src/prisma_cli.py
 ```
 
-### Create a Project
-```bash
-python3 src/prisma_cli.py create-project "My New Review" --desc "A systematic review on X"
-```
-
-### Import Search Results
-You can import `.csv` or `.ris` files. 
-```bash
-# Example CSV import
-python3 src/prisma_cli.py import-csv 1 "data/imports/my_results.csv"
-
-# Example RIS import
-python3 src/prisma_cli.py import-ris 1 "data/imports/my_results.ris"
-```
-
-### Screen Papers
-Start an interactive Title/Abstract screening session.
-```bash
-python3 src/prisma_cli.py screen 1
-```
-
-### Open a Paper's DOI
-Automatically open the paper's DOI link in your default web browser to download the full-text PDF.
-```bash
-python3 src/prisma_cli.py open-doi 5
-```
+The app will start a text-based wizard that allows you to:
+1. Create a new review or select an existing one.
+2. Interactively import `.csv` and `.ris` files (it will even auto-detect them if you put them in the correct `data/imports/project_X/` folder).
+3. Conduct interactive Title/Abstract screening.
+4. Auto-open DOIs in your browser for full-text PDF retrieval.
