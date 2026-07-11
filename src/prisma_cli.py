@@ -69,6 +69,13 @@ def create_project(name, desc):
     os.makedirs(project_dir, exist_ok=True)
     return project_id
 
+def pick_field(row, candidates):
+    """Try multiple column name variants and return the first match."""
+    for key in candidates:
+        if key in row and row[key] and str(row[key]).strip():
+            return str(row[key]).strip()
+    return ''
+
 def import_csv(project_id, filepath):
     if not os.path.exists(filepath):
         print(f"\n[!] File not found: {filepath}")
@@ -80,12 +87,31 @@ def import_csv(project_id, filepath):
     try:
         with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
             reader = csv.DictReader(f)
+            headers = reader.fieldnames or []
+            print(f"\n  Detected columns: {', '.join(headers)}")
+            
             for row in reader:
-                title = row.get('Title', row.get('title', ''))
-                authors = row.get('Authors', row.get('authors', ''))
-                abstract = row.get('Abstract', row.get('abstract', ''))
-                doi = row.get('DOI', row.get('doi', ''))
-                year = row.get('Year', row.get('year', None))
+                # Try all known column name variations from Scopus, IEEE, PubMed, WoS
+                title = pick_field(row, [
+                    'Title', 'title', 'Document Title', 'Article Title', 'Paper Title'
+                ])
+                authors = pick_field(row, [
+                    'Authors', 'authors', 'Author', 'Author Names', 'Authors/Editors'
+                ])
+                abstract = pick_field(row, [
+                    'Abstract', 'abstract', 'Author Abstract'
+                ])
+                doi = pick_field(row, [
+                    'DOI', 'doi', 'Digital Object Identifier', 'Article DOI'
+                ])
+                year = pick_field(row, [
+                    'Year', 'year', 'Publication Year', 'Year Published', 
+                    'Publication Date', 'Cover Date'
+                ])
+                # Extract 4-digit year if a full date is present (e.g. "2023-05-01")
+                if year:
+                    year_match = re.search(r'(\d{4})', year)
+                    year = year_match.group(1) if year_match else None
                 
                 if not title:
                     continue
@@ -96,7 +122,7 @@ def import_csv(project_id, filepath):
                 ''', (project_id, title, authors, abstract, doi, year))
                 count += 1
         conn.commit()
-        print(f"\n[+] Successfully imported {count} papers!")
+        print(f"[+] Successfully imported {count} papers!")
     except Exception as e:
         print(f"\n[!] Error importing CSV: {e}")
     finally:
