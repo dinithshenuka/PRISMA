@@ -66,8 +66,8 @@ def _review_group(
             _print_paper_row(idx, paper)
 
         print("  " + "─" * 80)
-        print("  Enter the NUMBER of the paper to KEEP (others become 'duplicate').")
-        print("  Or:  [s] Skip this group  |  [q] Quit deduplication")
+        print("  Which paper is the original/best copy? (The rest will be marked 'duplicate')")
+        print("  Enter NUMBER to keep  |  [s] Skip (do nothing to this group)  |  [q] Quit")
 
         choice = input("\n  Your choice: ").strip().lower()
 
@@ -90,9 +90,10 @@ def _review_group(
         to_mark = [p['id'] for p in group if p['id'] != keep_paper['id']]
         mark_papers_as_duplicate(to_mark)
 
+        import time
         print(f"\n  ✅ Kept ID={keep_paper['id']}. "
               f"Marked {len(to_mark)} paper(s) as duplicate.")
-        input("  Press Enter to continue...")
+        time.sleep(0.75)  # Brief pause to show success before auto-advancing
         return 'keep', to_mark
 
 

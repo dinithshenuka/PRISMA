@@ -58,6 +58,7 @@ def run_screening_session(papers: list) -> None:
         print(f"  {paper['abstract'] or 'No abstract available.'}")
         print("=" * 80)
 
+        import time
         while True:
             print("\n  (i) Include  |  (e) Exclude  |  (o) Open DOI  |  (s) Skip  |  (q) Quit")
             choice = input("  Your choice: ").strip().lower()
@@ -65,15 +66,18 @@ def run_screening_session(papers: list) -> None:
             if choice == 'i':
                 update_paper_stage(paper['id'], 'title_included')
                 print("  ✓ Included.")
+                time.sleep(0.5)
                 break
             elif choice == 'e':
                 update_paper_stage(paper['id'], 'title_excluded')
                 print("  ✗ Excluded.")
+                time.sleep(0.5)
                 break
             elif choice == 'o':
                 _open_doi(paper['id'])
             elif choice == 's':
                 print("  → Skipped.")
+                time.sleep(0.5)
                 break
             elif choice == 'q':
                 print("\n  Progress saved. Exiting screening session.")
