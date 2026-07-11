@@ -2,9 +2,13 @@
 
 A CLI tool for running a [PRISMA](https://www.prisma-statement.org/) systematic literature review — import papers from multiple academic databases, screen by title/abstract, and track full-text retrieval, all from the terminal.
 
-> **What is PRISMA?** PRISMA (Preferred Reporting Items for Systematic Reviews and Meta-Analyses) is the standard methodology for systematic literature reviews. It defines a funnel: *identify* papers from databases → *screen* by title/abstract → *assess* full-text eligibility → *include* in the review.
+## PRISMA 2020 Documents
 
-No dependencies. No frameworks. Just Python and SQLite.
+- [Checklist](https://www.prisma-statement.org/prisma-2020-checklist)
+- [Expanded checklist](https://www.prisma-statement.org/prisma-2020-expanded-checklist)
+- [Flow diagram](https://www.prisma-statement.org/prisma-2020-flow-diagram)
+- [Statement paper](https://www.prisma-statement.org/prisma-2020-statement)
+- [Explanation and elaboration paper](https://www.prisma-statement.org/prisma-2020-explanation-elaboration)
 
 ---
 
