@@ -1,6 +1,6 @@
 # PRISMA
 
-A CLI tool for running a [PRISMA](https://www.prisma-statement.org/) systematic literature review — import papers from multiple academic databases, screen by title/abstract, and track full-text retrieval, all from the terminal.
+A CLI tool for running a [PRISMA](https://www.prisma-statement.org/) systematic literature review (SLR) — import papers from multiple academic databases, deduplicate, screen by title/abstract, and track full-text retrieval, all from the terminal with zero external dependencies.
 
 ## PRISMA 2020 Documents
 
@@ -35,23 +35,38 @@ The app is fully menu-driven — no arguments needed.
 
 ## Workflow
 
-1. **Create a project** — each systematic review gets its own project and isolated database records.
-2. **Import papers** — drop exported `.csv` or `.ris` files into `data/imports/<project_name>/`. The app auto-detects the source database and parses accordingly.
-3. **Screen by title/abstract** — go through papers one-by-one and mark each as `include`, `exclude`, or `skip`. You can open the DOI in your browser mid-session.
-4. **Full-text retrieval** — open any paper's DOI directly from the project menu to track down PDFs.
+1. **Create a project** — each SLR gets its own project with isolated database records.
+2. **Import papers** — drop exported `.csv` or `.ris` files into `data/imports/<project_name>/`. The tool auto-detects the source database and parses accordingly.
+3. **Deduplicate** — scan for exact DOI matches and near-identical titles across all imports. Review each duplicate group and choose which copy to keep.
+4. **Screen by title/abstract** — go through papers one-by-one and mark each as `include`, `exclude`, or `skip`. Open the DOI in your browser mid-session.
+5. **View stats** — see a live breakdown of imported, included, excluded, skipped, and duplicate counts per database, with drill-down paper lists.
+6. **Full-text retrieval** — open any paper's DOI directly from the project menu to track down PDFs.
 
 ---
 
-## Supported Databases
+## Supported Import Formats
 
-| Database | Format |
-|---|---|
-| PubMed | `.ris` |
-| Scopus | `.csv` |
-| Web of Science | `.ris` |
-| IEEE Xplore | `.csv` |
-| ACM Digital Library | `.csv` |
-| Springer | `.csv` |
+| Database            | Format |
+|---------------------|--------|
+| IEEE Xplore         | `.csv` |
+| Scopus              | `.csv` |
+| Web of Science      | `.ris` |
+| ACM Digital Library | `.ris` |
+| Springer            | `.csv` |
+| PubMed              | `.ris` |
+
+---
+
+## Paper Stages
+
+Each paper moves through these stages as you work:
+
+| Stage            | Meaning                                      |
+|------------------|----------------------------------------------|
+| `unscreened`     | Not yet reviewed                             |
+| `title_included` | Passed title/abstract screening              |
+| `title_excluded` | Rejected at title/abstract stage             |
+| `duplicate`      | Flagged as a duplicate and removed from flow |
 
 ---
 
@@ -60,33 +75,38 @@ The app is fully menu-driven — no arguments needed.
 ```
 PRISMA/
 ├── src/
-│   ├── prisma_cli.py       # Entry point — all menus and UI
-│   ├── db.py               # SQLite database layer
-│   ├── screening.py        # Interactive screening session logic
-│   └── importers/
-│       ├── base.py         # Shared CSV/RIS parsing logic
-│       ├── pubmed.py
-│       ├── scopus.py
-│       ├── wos.py
-│       ├── ieee.py
-│       ├── acm.py
-│       └── springer.py
+│   ├── prisma_cli.py       # Entry point — main menu only
+│   ├── db.py               # SQLite database layer + all queries
+│   ├── screening.py        # Interactive title/abstract screening session
+│   ├── importers/          # Per-database CSV/RIS parsers
+│   │   ├── base.py         #   Shared parsing logic
+│   │   ├── ieee.py
+│   │   ├── scopus.py
+│   │   ├── wos.py
+│   │   ├── acm.py
+│   │   ├── springer.py
+│   │   └── pubmed.py
+│   └── menus/              # CLI menu package (one file per screen)
+│       ├── __init__.py     #   Public re-exports
+│       ├── utils.py        #   Shared helpers (clear_screen, pause, STAGE_LABELS)
+│       ├── import_menu.py  #   File selection + import flow
+│       ├── stats_menu.py   #   Stats table + drill-down lists
+│       ├── dedup_menu.py   #   Deduplication session
+│       └── project_menu.py #   Per-project navigation
 ├── data/
 │   ├── prisma.db           # Local SQLite database (auto-created)
 │   └── imports/
-│       └── <project>/      # Drop your exported files here
-├── archive/                # Old Flask-based version (not maintained)
+│       └── <project>/      # Drop your exported database files here
 └── Makefile
 ```
 
 ---
 
-## Paper Stages
+## Deduplication
 
-Each paper moves through these stages as you screen:
+The dedup scanner runs two passes automatically:
 
-| Stage | Meaning |
-|---|---|
-| `unscreened` | Not yet reviewed |
-| `title_included` | Passed title/abstract screening |
-| `title_excluded` | Rejected at title/abstract stage |
+1. **Exact DOI match** — papers sharing the same DOI (common when the same paper is exported from multiple databases).
+2. **Fuzzy title match** — papers whose normalised titles score ≥ 0.92 similarity via `difflib.SequenceMatcher` (catches the same paper published in multiple venues with identical/near-identical titles).
+
+For each group found, you choose which copy to keep — the rest are marked `duplicate` and excluded from screening.

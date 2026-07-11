@@ -6,6 +6,8 @@ Handles all SQLite connection, schema initialization, and query functions.
 import sqlite3
 import os
 import re
+import difflib
+import unicodedata
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DB_FILE = os.path.join(BASE_DIR, 'data', 'prisma.db')
@@ -160,10 +162,11 @@ def get_stats_by_source(project_id: int) -> list:
     cursor.execute('''
         SELECT
             COALESCE(source_db, 'Unknown') AS source_db,
-            COUNT(*)                                                      AS total,
-            SUM(CASE WHEN stage = 'title_included'  THEN 1 ELSE 0 END)  AS included,
-            SUM(CASE WHEN stage = 'title_excluded'  THEN 1 ELSE 0 END)  AS excluded,
-            SUM(CASE WHEN stage = 'unscreened'      THEN 1 ELSE 0 END)  AS skipped
+            COUNT(*)                                                       AS total,
+            SUM(CASE WHEN stage = 'title_included'  THEN 1 ELSE 0 END)   AS included,
+            SUM(CASE WHEN stage = 'title_excluded'  THEN 1 ELSE 0 END)   AS excluded,
+            SUM(CASE WHEN stage = 'unscreened'      THEN 1 ELSE 0 END)   AS skipped,
+            SUM(CASE WHEN stage = 'duplicate'        THEN 1 ELSE 0 END)   AS duplicates
         FROM papers
         WHERE project_id = ?
         GROUP BY source_db
@@ -190,6 +193,99 @@ def get_paper_list_by_stage(project_id: int, stage: str) -> list:
     rows = cursor.fetchall()
     conn.close()
     return rows
+
+
+def _normalize_title(title: str) -> str:
+    """
+    Normalise a title for fuzzy comparison:
+    lowercase, strip accents, collapse whitespace, remove punctuation.
+    """
+    # Unicode normalisation → strip combining characters (accents)
+    nfkd = unicodedata.normalize('NFKD', title)
+    ascii_str = ''.join(c for c in nfkd if not unicodedata.combining(c))
+    # lowercase and keep only alphanumeric + spaces
+    clean = re.sub(r'[^a-z0-9\s]', '', ascii_str.lower())
+    return re.sub(r'\s+', ' ', clean).strip()
+
+
+def find_duplicate_groups(project_id: int, title_threshold: float = 0.92) -> list[list[dict]]:
+    """
+    Find groups of duplicate papers for a project.
+
+    Two passes:
+      1. Exact DOI match  — papers sharing the same non-empty DOI.
+      2. Fuzzy title match — remaining papers whose normalised titles
+         score >= title_threshold via difflib.SequenceMatcher.
+
+    Returns a list of groups, where each group is a list of paper dicts
+    (id, title, authors, year, doi, source_db, stage).
+    Only groups with 2+ members are returned.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT id, title, authors, year, doi, source_db, stage
+        FROM papers
+        WHERE project_id = ? AND stage != 'duplicate'
+        ORDER BY id
+    ''', (project_id,))
+    all_papers = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+
+    groups: list[list[dict]] = []
+    seen_ids: set[int] = set()
+
+    # ── Pass 1: exact DOI duplicates ─────────────────────────────────────
+    doi_map: dict[str, list[dict]] = {}
+    for p in all_papers:
+        doi = (p['doi'] or '').strip().lower()
+        if not doi:
+            continue
+        doi_map.setdefault(doi, []).append(p)
+
+    for doi, members in doi_map.items():
+        if len(members) >= 2:
+            groups.append(members)
+            for m in members:
+                seen_ids.add(m['id'])
+
+    # ── Pass 2: fuzzy title duplicates (papers not already grouped) ───────
+    remaining = [p for p in all_papers if p['id'] not in seen_ids]
+
+    # Build normalised titles once
+    norm_titles = [(p, _normalize_title(p['title'] or '')) for p in remaining]
+
+    matched: set[int] = set()
+    for i, (pi, ni) in enumerate(norm_titles):
+        if pi['id'] in matched or not ni:
+            continue
+        group = [pi]
+        for j, (pj, nj) in enumerate(norm_titles):
+            if i == j or pj['id'] in matched or not nj:
+                continue
+            ratio = difflib.SequenceMatcher(None, ni, nj).ratio()
+            if ratio >= title_threshold:
+                group.append(pj)
+                matched.add(pj['id'])
+        if len(group) >= 2:
+            matched.add(pi['id'])
+            groups.append(group)
+
+    return groups
+
+
+def mark_papers_as_duplicate(paper_ids: list[int]) -> None:
+    """Set stage = 'duplicate' for each paper ID in the list."""
+    if not paper_ids:
+        return
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.executemany(
+        "UPDATE papers SET stage = 'duplicate' WHERE id = ?",
+        [(pid,) for pid in paper_ids],
+    )
+    conn.commit()
+    conn.close()
 
 
 def get_doi_by_paper_id(paper_id: int) -> str | None:
