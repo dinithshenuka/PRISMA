@@ -4,7 +4,7 @@ screening.py — Interactive Title/Abstract screening session logic.
 
 import webbrowser
 import os
-from db import update_paper_stage, get_doi_by_paper_id
+from db import update_paper_stage, get_doi_by_paper_id, get_exclusion_criteria, update_paper_exclusion
 
 
 def clear_screen() -> None:
@@ -27,13 +27,13 @@ def _open_doi(paper_id: int) -> None:
     webbrowser.open(url)
 
 
-def run_screening_session(papers: list) -> None:
+def run_screening_session(project_id: int, papers: list) -> None:
     """
     Run an interactive CLI screening session over a list of paper rows.
 
     Stages applied:
       (i) Include → 'title_included'
-      (e) Exclude → 'title_excluded'
+      (e) Exclude → 'title_excluded' (prompts for reason)
       (s) Skip    → no change (stays 'unscreened')
       (q) Quit    → saves progress and exits
     """
@@ -42,6 +42,7 @@ def run_screening_session(papers: list) -> None:
         input("\nPress Enter to continue...")
         return
 
+    criteria = get_exclusion_criteria(project_id)
     total = len(papers)
     clear_screen()
     print(f"  Starting screening session — {total} paper(s) to review.\n")
@@ -69,7 +70,26 @@ def run_screening_session(papers: list) -> None:
                 time.sleep(0.5)
                 break
             elif choice == 'e':
-                update_paper_stage(paper['id'], 'title_excluded')
+                if not criteria:
+                    reason = input("\n  Reason for exclusion (optional): ").strip()
+                    update_paper_exclusion(paper['id'], reason)
+                else:
+                    print("\n  Exclusion Criteria:")
+                    for idx, c in enumerate(criteria, start=1):
+                        print(f"    [{idx}] {c['reason']}")
+                    print("    [c] Custom reason")
+                    
+                    r_choice = input("  Select reason: ").strip().lower()
+                    reason = ""
+                    if r_choice == 'c':
+                        reason = input("  Enter custom reason: ").strip()
+                    elif r_choice.isdigit():
+                        r_idx = int(r_choice)
+                        if 1 <= r_idx <= len(criteria):
+                            reason = criteria[r_idx - 1]['reason']
+                        else:
+                            print("  [!] Invalid number, leaving reason blank.")
+                    update_paper_exclusion(paper['id'], reason)
                 print("  ✗ Excluded.")
                 time.sleep(0.5)
                 break

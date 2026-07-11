@@ -64,8 +64,13 @@ def _print_paper_list(papers: list, label: str, icon: str, project_name: str) ->
             title = p['title'] or 'No title'
             truncated = title[:65] + ('...' if len(title) > 65 else '')
             print(f"  [{p['id']:>3}] [{p['source_db']}] {truncated}")
+            
+            reason_str = ""
+            if 'exclusion_reason' in p.keys() and p['exclusion_reason']:
+                reason_str = f" | Excluded: {p['exclusion_reason']}"
+                
             print(f"        {p['authors'] or '':<40}  {p['year'] or '----'}  "
-                  f"DOI: {p['doi'] or 'N/A'}")
+                  f"DOI: {p['doi'] or 'N/A'}{reason_str}")
             print()
 
     print("  " + "═" * 80)
@@ -103,6 +108,19 @@ def stats_menu(project_id: int, project_name: str) -> None:
             continue
 
         stage = _DRILL_OPTIONS[choice]
+        
+        if stage == 'title_excluded':
+            from db import get_exclusion_reasons_stats
+            reasons = get_exclusion_reasons_stats(project_id)
+            if reasons:
+                clear_screen()
+                print(f"\n  Exclusion Reasons Breakdown — {project_name}")
+                print("  " + "═" * 60)
+                for r in reasons:
+                    print(f"  {r['reason']:<40} {r['count']:>8}")
+                print("  " + "═" * 60)
+                pause()
+                
         label, icon = STAGE_LABELS[stage]
         papers = get_paper_list_by_stage(project_id, stage)
         _print_paper_list(papers, label, icon, project_name)

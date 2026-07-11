@@ -56,6 +56,19 @@ def init_db() -> None:
     if 'source_db' not in existing_columns:
         cursor.execute("ALTER TABLE papers ADD COLUMN source_db TEXT")
 
+    # Migration: add exclusion_reason column
+    if 'exclusion_reason' not in existing_columns:
+        cursor.execute("ALTER TABLE papers ADD COLUMN exclusion_reason TEXT")
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS exclusion_criteria (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id  INTEGER NOT NULL,
+            reason      TEXT NOT NULL,
+            FOREIGN KEY (project_id) REFERENCES projects (id)
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -179,13 +192,13 @@ def get_stats_by_source(project_id: int) -> list:
 
 def get_paper_list_by_stage(project_id: int, stage: str) -> list:
     """
-    Return id, title, authors, year, doi for all papers in a given stage.
+    Return id, title, authors, year, doi, source_db, exclusion_reason for all papers in a given stage.
     stage can be 'title_included', 'title_excluded', or 'unscreened'.
     """
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT id, title, authors, year, doi, source_db
+        SELECT id, title, authors, year, doi, source_db, exclusion_reason
         FROM papers
         WHERE project_id = ? AND stage = ?
         ORDER BY source_db, id
@@ -297,6 +310,51 @@ def get_doi_by_paper_id(paper_id: int) -> str | None:
     conn.close()
     return row['doi'] if row else None
 
+
+# --- Exclusion Criteria & Reasoning ---
+
+def add_exclusion_criterion(project_id: int, reason: str) -> None:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO exclusion_criteria (project_id, reason) VALUES (?, ?)", (project_id, reason))
+    conn.commit()
+    conn.close()
+
+def get_exclusion_criteria(project_id: int) -> list:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, reason FROM exclusion_criteria WHERE project_id = ? ORDER BY id", (project_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+def delete_exclusion_criterion(criterion_id: int) -> None:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM exclusion_criteria WHERE id = ?", (criterion_id,))
+    conn.commit()
+    conn.close()
+
+def update_paper_exclusion(paper_id: int, reason: str) -> None:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE papers SET stage = 'title_excluded', exclusion_reason = ? WHERE id = ?", (reason, paper_id))
+    conn.commit()
+    conn.close()
+
+def get_exclusion_reasons_stats(project_id: int) -> list:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT COALESCE(exclusion_reason, 'No reason provided') AS reason, COUNT(*) as count
+        FROM papers
+        WHERE project_id = ? AND stage = 'title_excluded'
+        GROUP BY exclusion_reason
+        ORDER BY count DESC, reason
+    ''', (project_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
 
 def get_project_dir(project_id: int, project_name: str) -> str:
     """Return the canonical import directory path for a project."""

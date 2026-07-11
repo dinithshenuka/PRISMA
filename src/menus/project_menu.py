@@ -12,6 +12,7 @@ from menus.utils import clear_screen, pause
 from menus.import_menu import import_menu
 from menus.stats_menu import stats_menu
 from menus.dedup_menu import dedup_menu
+from menus.criteria_menu import criteria_menu
 
 
 def _open_doi_in_browser(doi: str) -> None:
@@ -34,23 +35,27 @@ def project_menu(project_id: int, project_name: str) -> None:
         print(f"=== PRISMA | {project_name} ===")
         print(border)
         print("  1. Import papers (CSV or RIS)")
-        print("  2. Start Title/Abstract Screening")
-        print("  3. Open a paper DOI in browser")
-        print("  4. View Import Stats")
-        print("  5. Deduplicate papers")
-        print("  6. Back to Main Menu")
+        print("  2. Manage Exclusion Criteria")
+        print("  3. Start Title/Abstract Screening")
+        print("  4. Open a paper DOI in browser")
+        print("  5. View Import Stats")
+        print("  6. Deduplicate papers")
+        print("  7. Back to Main Menu")
         print(border)
 
-        choice = input("\n  Select an option (1-6): ").strip()
+        choice = input("\n  Select an option (1-7): ").strip()
 
         if choice == '1':
             import_menu(project_id, project_name)
 
         elif choice == '2':
-            papers = get_unscreened_papers(project_id)
-            run_screening_session(papers)
+            criteria_menu(project_id, project_name)
 
         elif choice == '3':
+            papers = get_unscreened_papers(project_id)
+            run_screening_session(project_id, papers)
+
+        elif choice == '4':
             try:
                 pid = int(input("\n  Enter the paper's Database ID: ").strip())
                 doi = get_doi_by_paper_id(pid)
@@ -62,11 +67,11 @@ def project_menu(project_id: int, project_name: str) -> None:
                 print("  [!] Invalid ID.")
             pause()
 
-        elif choice == '4':
+        elif choice == '5':
             stats_menu(project_id, project_name)
 
-        elif choice == '5':
+        elif choice == '6':
             dedup_menu(project_id, project_name)
 
-        elif choice == '6':
+        elif choice == '7':
             break
