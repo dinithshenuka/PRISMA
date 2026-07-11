@@ -1,433 +1,209 @@
 #!/usr/bin/env python3
-import sqlite3
-import csv
-import webbrowser
+"""
+prisma_cli.py — Main entry point for the PRISMA Pipeline Manager.
+UI only: menus, user input, and output. All business logic is in other modules.
+"""
+
 import sys
-import re
 import os
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DB_FILE = os.path.join(BASE_DIR, 'data', 'prisma.db')
+# Ensure src/ is on the path so sibling modules resolve correctly
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-def get_db():
-    conn = sqlite3.connect(DB_FILE)
-    conn.row_factory = sqlite3.Row
-    return conn
+from db import (
+    init_db,
+    create_project,
+    get_all_projects,
+    get_project_by_id,
+    insert_papers,
+    get_unscreened_papers,
+    get_doi_by_paper_id,
+    get_project_dir,
+)
+from importers import detect_importer
+from screening import run_screening_session
+import webbrowser
 
-def init_db():
-    os.makedirs(os.path.dirname(DB_FILE), exist_ok=True)
-    conn = get_db()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS projects (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            description TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS papers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            project_id INTEGER NOT NULL,
-            title TEXT,
-            authors TEXT,
-            abstract TEXT,
-            doi TEXT,
-            year INTEGER,
-            stage TEXT DEFAULT 'unscreened',
-            pdf_path TEXT,
-            FOREIGN KEY (project_id) REFERENCES projects (id)
-        )
-    ''')
-    conn.commit()
-    conn.close()
 
-def clear_screen():
+def clear_screen() -> None:
     os.system('cls' if os.name == 'nt' else 'clear')
 
-def get_project_dir(project_id, project_name):
-    # Sanitize project name to be safe for folder names
-    safe_name = re.sub(r'[^a-zA-Z0-9]', '_', project_name).strip('_').lower()
-    if not safe_name:
-        safe_name = "project"
-    return os.path.join(BASE_DIR, 'data', 'imports', f"{safe_name}_{project_id}")
 
-# --- Backend Operations ---
+def pause() -> None:
+    input("\nPress Enter to continue...")
 
-def create_project(name, desc):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO projects (name, description) VALUES (?, ?)", (name, desc))
-    project_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    
-    project_dir = get_project_dir(project_id, name)
+
+# --- Import Menu ---
+
+def _list_files(directory: str, extension: str) -> list[str]:
+    """Return files with the given extension inside a directory."""
+    os.makedirs(directory, exist_ok=True)
+    return sorted(
+        f for f in os.listdir(directory)
+        if f.lower().endswith(extension)
+    )
+
+
+def import_menu(project_id: int, project_name: str) -> None:
+    """Show available files in the project import folder and handle import."""
+    project_dir = get_project_dir(project_id, project_name)
     os.makedirs(project_dir, exist_ok=True)
-    return project_id
 
-def pick_field(row, candidates):
-    """Try multiple column name variants and return the first match."""
-    for key in candidates:
-        if key in row and row[key] and str(row[key]).strip():
-            return str(row[key]).strip()
-    return ''
+    files = _list_files(project_dir, '.csv') + _list_files(project_dir, '.ris')
 
-def import_csv(project_id, filepath):
-    if not os.path.exists(filepath):
-        print(f"\n[!] File not found: {filepath}")
+    if not files:
+        print(f"\n  [!] No .csv or .ris files found in:")
+        print(f"      {project_dir}/")
+        print("\n  Please drop your exported files there and try again.")
+        pause()
         return
-        
-    conn = get_db()
-    cursor = conn.cursor()
-    count = 0
+
+    print(f"\n  Import folder: {project_dir}/")
+    print("\n  Available files:")
+    for i, filename in enumerate(files, start=1):
+        print(f"    [{i}] {filename}")
+    print("    [0] Cancel")
+
     try:
-        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-            reader = csv.DictReader(f)
-            headers = reader.fieldnames or []
-            print(f"\n  Detected columns: {', '.join(headers)}")
-            
-            for row in reader:
-                # Try all known column name variations from Scopus, IEEE, PubMed, WoS
-                title = pick_field(row, [
-                    'Title', 'title', 'Document Title', 'Article Title', 'Paper Title'
-                ])
-                authors = pick_field(row, [
-                    'Authors', 'authors', 'Author', 'Author Names', 'Authors/Editors'
-                ])
-                abstract = pick_field(row, [
-                    'Abstract', 'abstract', 'Author Abstract'
-                ])
-                doi = pick_field(row, [
-                    'DOI', 'doi', 'Digital Object Identifier', 'Article DOI'
-                ])
-                year = pick_field(row, [
-                    'Year', 'year', 'Publication Year', 'Year Published', 
-                    'Publication Date', 'Cover Date'
-                ])
-                # Extract 4-digit year if a full date is present (e.g. "2023-05-01")
-                if year:
-                    year_match = re.search(r'(\d{4})', year)
-                    year = year_match.group(1) if year_match else None
-                
-                if not title:
-                    continue
-                    
-                cursor.execute('''
-                    INSERT INTO papers (project_id, title, authors, abstract, doi, year)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (project_id, title, authors, abstract, doi, year))
-                count += 1
-        conn.commit()
-        print(f"[+] Successfully imported {count} papers!")
-    except Exception as e:
-        print(f"\n[!] Error importing CSV: {e}")
-    finally:
-        conn.close()
-
-def import_ris(project_id, filepath):
-    if not os.path.exists(filepath):
-        print(f"\n[!] File not found: {filepath}")
+        choice = int(input("\n  Select a file to import: ").strip())
+        if choice == 0:
+            return
+        if not (1 <= choice <= len(files)):
+            print("  [!] Invalid selection.")
+            pause()
+            return
+    except ValueError:
+        print("  [!] Invalid input.")
+        pause()
         return
-        
-    conn = get_db()
-    cursor = conn.cursor()
-    count = 0
+
+    filepath = os.path.join(project_dir, files[choice - 1])
+
     try:
-        with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-            lines = f.readlines()
-            
-        current_paper = {}
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-            
-            match = re.match(r'^([A-Z0-9]{2})\s+-\s+(.*)$', line)
-            if match:
-                tag, value = match.groups()
-                
-                if tag == 'TY':
-                    if current_paper:
-                        cursor.execute('''
-                            INSERT INTO papers (project_id, title, authors, abstract, doi, year)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        ''', (
-                            project_id, 
-                            current_paper.get('title', ''), 
-                            current_paper.get('authors', ''), 
-                            current_paper.get('abstract', ''), 
-                            current_paper.get('doi', ''), 
-                            current_paper.get('year', None)
-                        ))
-                        count += 1
-                    current_paper = {'authors': []}
-                elif tag == 'T1' or tag == 'TI':
-                    current_paper['title'] = value
-                elif tag == 'AU' or tag == 'A1':
-                    current_paper['authors'].append(value)
-                elif tag == 'AB':
-                    current_paper['abstract'] = value
-                elif tag == 'DO':
-                    current_paper['doi'] = value
-                elif tag == 'PY' or tag == 'Y1':
-                    year_match = re.search(r'(\d{4})', value)
-                    if year_match:
-                        current_paper['year'] = int(year_match.group(1))
-
-        if current_paper and 'title' in current_paper:
-            authors_str = "; ".join(current_paper.get('authors', []))
-            cursor.execute('''
-                INSERT INTO papers (project_id, title, authors, abstract, doi, year)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (project_id, current_paper.get('title', ''), authors_str, current_paper.get('abstract', ''), current_paper.get('doi', ''), current_paper.get('year', None)))
-            count += 1
-            
-        conn.commit()
-        print(f"\n[+] Successfully imported {count} papers!")
+        importer = detect_importer(filepath)
+        print(f"\n  Detected source: {importer.SOURCE_NAME}")
+        papers = importer.parse(filepath)
+        count = insert_papers(project_id, papers, importer.SOURCE_NAME)
+        print(f"  [+] Successfully imported {count} paper(s) from {importer.SOURCE_NAME}!")
     except Exception as e:
-        print(f"\n[!] Error importing RIS: {e}")
-    finally:
-        conn.close()
+        print(f"\n  [!] Import failed: {e}")
 
-def screen_project(project_id):
-    conn = get_db()
-    cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT id, title, authors, year, abstract, doi 
-        FROM papers 
-        WHERE project_id = ? AND stage = 'unscreened'
-    ''', (project_id,))
-    
-    papers = cursor.fetchall()
-    if not papers:
-        print("\n[!] No unscreened papers found for this project!")
-        conn.close()
-        input("\nPress Enter to continue...")
-        return
+    pause()
 
-    clear_screen()
-    print(f"Found {len(papers)} unscreened papers. Let's begin screening!\n")
-    
-    for paper in papers:
-        print("=" * 80)
-        print(f"[{paper['id']}] TITLE: {paper['title']}")
-        print(f"AUTHORS: {paper['authors']}")
-        print(f"YEAR: {paper['year']}  |  DOI: {paper['doi']}")
-        print("-" * 80)
-        print("ABSTRACT:")
-        print(paper['abstract'])
-        print("=" * 80)
-        
-        while True:
-            print("\nOptions: (i) Include | (e) Exclude | (o) Open DOI in Browser | (s) Skip | (q) Quit")
-            choice = input("Your choice: ").strip().lower()
-            
-            if choice == 'i':
-                cursor.execute("UPDATE papers SET stage = 'title_included' WHERE id = ?", (paper['id'],))
-                conn.commit()
-                break
-            elif choice == 'e':
-                cursor.execute("UPDATE papers SET stage = 'title_excluded' WHERE id = ?", (paper['id'],))
-                conn.commit()
-                break
-            elif choice == 'o':
-                if paper['doi']:
-                    open_doi(paper['id'])
-                else:
-                    print("No DOI available for this paper.")
-            elif choice == 's':
-                print("Skipped.")
-                break
-            elif choice == 'q':
-                print("Saving progress and exiting screening session...")
-                conn.close()
-                return
-            else:
-                print("Invalid choice.")
-        
-        clear_screen()
-                
-    conn.close()
-    print("\n[+] Screening session complete! No more unscreened papers.")
-    input("\nPress Enter to return to menu...")
 
-def open_doi(paper_id):
-    conn = get_db()
-    cursor = conn.cursor()
-    cursor.execute('SELECT doi FROM papers WHERE id = ?', (paper_id,))
-    row = cursor.fetchone()
-    conn.close()
-    
-    if not row or not row['doi']:
-        print(f"No DOI found for paper ID {paper_id}.")
-        return
-        
-    doi = row['doi']
-    if doi.startswith("doi:"): doi = doi[4:]
-    elif doi.startswith("https://doi.org/"): doi = doi[16:]
-    elif doi.startswith("http://doi.org/"): doi = doi[15:]
-        
-    url = f"https://doi.org/{doi}"
-    print(f"Opening {url} in browser...")
-    webbrowser.open(url)
+# --- Project Menu ---
 
-# --- UI Menus ---
-
-def project_menu(project_id, project_name):
+def project_menu(project_id: int, project_name: str) -> None:
     while True:
         clear_screen()
-        print(f"=== PRISMA Pipeline | Project: {project_name} ===")
-        print("1. Import papers from .csv")
-        print("2. Import papers from .ris")
-        print("3. Start Title/Abstract Screening")
-        print("4. Open a specific paper DOI")
-        print("5. Back to Main Menu")
-        print("===================================")
-        
-        choice = input("Select an option (1-5): ").strip()
-        
+        print(f"=== PRISMA | {project_name} ===")
+        print("  1. Import papers (CSV or RIS)")
+        print("  2. Start Title/Abstract Screening")
+        print("  3. Open a paper DOI in browser")
+        print("  4. Back to Main Menu")
+        print("=" * (len(project_name) + 13))
+
+        choice = input("\n  Select an option (1-4): ").strip()
+
         if choice == '1':
-            project_dir = get_project_dir(project_id, project_name)
-            os.makedirs(project_dir, exist_ok=True)
-            files = [f for f in os.listdir(project_dir) if f.lower().endswith('.csv')]
-            
-            if not files:
-                print(f"\n[!] No .csv files found in {project_dir}/")
-                input("\nPress Enter to continue...")
-                continue
-                
-            print(f"\nFound .csv files in {project_dir}/ :")
-            for i, f in enumerate(files, 1):
-                print(f"[{i}] {f}")
-            print("[0] Cancel")
-            
-            try:
-                f_idx = int(input("\nSelect a file to import: "))
-                if f_idx == 0:
-                    continue
-                if 1 <= f_idx <= len(files):
-                    import_csv(project_id, os.path.join(project_dir, files[f_idx-1]))
-                else:
-                    print("Invalid selection.")
-            except ValueError:
-                print("Invalid input.")
-            input("\nPress Enter to continue...")
-            
+            import_menu(project_id, project_name)
+
         elif choice == '2':
-            project_dir = get_project_dir(project_id, project_name)
-            os.makedirs(project_dir, exist_ok=True)
-            files = [f for f in os.listdir(project_dir) if f.lower().endswith('.ris')]
-            
-            if not files:
-                print(f"\n[!] No .ris files found in {project_dir}/")
-                input("\nPress Enter to continue...")
-                continue
-                
-            print(f"\nFound .ris files in {project_dir}/ :")
-            for i, f in enumerate(files, 1):
-                print(f"[{i}] {f}")
-            print("[0] Cancel")
-            
-            try:
-                f_idx = int(input("\nSelect a file to import: "))
-                if f_idx == 0:
-                    continue
-                if 1 <= f_idx <= len(files):
-                    import_ris(project_id, os.path.join(project_dir, files[f_idx-1]))
-                else:
-                    print("Invalid selection.")
-            except ValueError:
-                print("Invalid input.")
-            input("\nPress Enter to continue...")
-            
+            papers = get_unscreened_papers(project_id)
+            run_screening_session(papers)
+
         elif choice == '3':
-            screen_project(project_id)
-            
-        elif choice == '4':
             try:
-                pid = int(input("\nEnter the Database ID of the paper: "))
-                open_doi(pid)
+                pid = int(input("\n  Enter the paper's Database ID: ").strip())
+                doi = get_doi_by_paper_id(pid)
+                if not doi:
+                    print("  [!] No DOI found for that paper ID.")
+                else:
+                    for prefix in ("https://doi.org/", "http://doi.org/", "doi:"):
+                        if doi.startswith(prefix):
+                            doi = doi[len(prefix):]
+                    url = f"https://doi.org/{doi}"
+                    print(f"  Opening {url} ...")
+                    webbrowser.open(url)
             except ValueError:
-                print("Invalid ID.")
-            input("\nPress Enter to continue...")
-            
-        elif choice == '5':
+                print("  [!] Invalid ID.")
+            pause()
+
+        elif choice == '4':
             break
 
-def main_menu():
+
+# --- Main Menu ---
+
+def main_menu() -> None:
     init_db()
-    
+
     while True:
         clear_screen()
-        print("=== PRISMA Pipeline Manager ===")
-        print("1. Open an existing project")
-        print("2. Create a new project")
-        print("3. Exit")
-        print("===============================")
-        
-        choice = input("Select an option (1-3): ").strip()
-        
+        print("╔══════════════════════════════╗")
+        print("║   PRISMA Pipeline Manager    ║")
+        print("╠══════════════════════════════╣")
+        print("║  1. Open existing project    ║")
+        print("║  2. Create new project       ║")
+        print("║  3. Exit                     ║")
+        print("╚══════════════════════════════╝")
+
+        choice = input("\n  Select an option (1-3): ").strip()
+
         if choice == '1':
-            conn = get_db()
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, name FROM projects ORDER BY created_at DESC")
-            projects = cursor.fetchall()
-            conn.close()
-            
+            projects = get_all_projects()
             if not projects:
-                print("\n[!] No projects found. Please create one first.")
-                input("\nPress Enter to continue...")
+                print("\n  [!] No projects yet. Please create one first.")
+                pause()
                 continue
-                
-            print("\n--- Existing Projects ---")
+
+            print("\n  --- Your Projects ---")
             for p in projects:
-                print(f"[{p['id']}] {p['name']}")
-                
-            print("[0] Cancel")
-            
+                print(f"    [{p['id']}] {p['name']}")
+            print("    [0] Cancel")
+
             try:
-                pid = int(input("\nEnter Project ID to open: "))
+                pid = int(input("\n  Enter Project ID: ").strip())
                 if pid == 0:
                     continue
-                selected = next((p for p in projects if p['id'] == pid), None)
-                if selected:
-                    project_menu(selected['id'], selected['name'])
+                project = get_project_by_id(pid)
+                if project:
+                    project_menu(project['id'], project['name'])
                 else:
-                    print("Invalid Project ID.")
-                    input("\nPress Enter to continue...")
+                    print("  [!] Invalid Project ID.")
+                    pause()
             except ValueError:
-                print("Invalid input.")
-                input("\nPress Enter to continue...")
-                
+                print("  [!] Invalid input.")
+                pause()
+
         elif choice == '2':
-            print("\n--- Create New Project ---")
-            name = input("Project Name: ").strip()
+            print("\n  --- Create New Project ---")
+            name = input("  Project Name: ").strip()
             if not name:
-                print("Name cannot be empty.")
-                input("\nPress Enter to continue...")
+                print("  [!] Name cannot be empty.")
+                pause()
                 continue
-            desc = input("Description (optional): ").strip()
-            
+            desc = input("  Description (optional): ").strip()
+
             pid = create_project(name, desc)
-            pdir = get_project_dir(pid, name)
-            print(f"\n[+] Project created successfully! ID: {pid}")
-            print(f"[+] Import folder created: {pdir}/")
-            input("\nPress Enter to open this project...")
+            project_dir = get_project_dir(pid, name)
+            os.makedirs(project_dir, exist_ok=True)
+
+            print(f"\n  [+] Project '{name}' created! ID: {pid}")
+            print(f"  [+] Drop your export files into:")
+            print(f"      {project_dir}/")
+            pause()
             project_menu(pid, name)
-            
+
         elif choice == '3':
             clear_screen()
-            print("Exiting PRISMA Pipeline Manager. Goodbye!")
+            print("  Goodbye!\n")
             sys.exit(0)
+
 
 if __name__ == '__main__':
     try:
         main_menu()
     except KeyboardInterrupt:
-        print("\nExiting...")
+        print("\n\n  Interrupted. Goodbye!")
         sys.exit(0)
