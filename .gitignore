@@ -1,6 +1,7 @@
 venv/
 .env
-data/
+data/*
+!data/.gitkeep
 __pycache__/
 .DS_Store
 *.db
