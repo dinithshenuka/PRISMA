@@ -19,6 +19,8 @@ from db import (
     get_unscreened_papers,
     get_doi_by_paper_id,
     get_project_dir,
+    get_stats_by_source,
+    get_paper_list_by_stage,
 )
 from importers import detect_importer
 from screening import run_screening_session
@@ -91,19 +93,119 @@ def import_menu(project_id: int, project_name: str) -> None:
     pause()
 
 
+# --- Stats Menu ---
+
+_STAGE_LABELS = {
+    'title_included': ('Included', '✅'),
+    'title_excluded': ('Excluded', '❌'),
+    'unscreened':     ('Skipped / Unscreened', '⏭ '),
+}
+
+
+def stats_menu(project_id: int, project_name: str) -> None:
+    """Display import statistics per source database, with drill-down lists."""
+    while True:
+        clear_screen()
+        rows = get_stats_by_source(project_id)
+
+        if not rows:
+            print(f"\n  [!] No papers imported yet for '{project_name}'.")
+            pause()
+            return
+
+        # ── Summary table ───────────────────────────────────────────────────
+        print(f"\n  Import Statistics — {project_name}")
+        print("  " + "═" * 62)
+        print(f"  {'Database':<20} {'Total':>6}  {'✅ Incl':>8}  {'❌ Excl':>8}  {'⏭  Skip':>8}")
+        print("  " + "─" * 62)
+
+        totals = [0, 0, 0, 0]  # total, included, excluded, skipped
+        for r in rows:
+            print(
+                f"  {r['source_db']:<20} "
+                f"{r['total']:>6}  "
+                f"{r['included']:>8}  "
+                f"{r['excluded']:>8}  "
+                f"{r['skipped']:>8}"
+            )
+            totals[0] += r['total']
+            totals[1] += r['included']
+            totals[2] += r['excluded']
+            totals[3] += r['skipped']
+
+        print("  " + "─" * 62)
+        print(
+            f"  {'TOTAL':<20} "
+            f"{totals[0]:>6}  "
+            f"{totals[1]:>8}  "
+            f"{totals[2]:>8}  "
+            f"{totals[3]:>8}"
+        )
+        print("  " + "═" * 62)
+
+        # ── Drill-down options ───────────────────────────────────────────────
+        print("\n  View list:")
+        print("    [1] ✅ Included papers")
+        print("    [2] ❌ Excluded papers")
+        print("    [3] ⏭  Skipped / Unscreened papers")
+        print("    [0] Back")
+
+        choice = input("\n  Select an option: ").strip()
+
+        if choice == '0':
+            return
+
+        stage_map = {
+            '1': 'title_included',
+            '2': 'title_excluded',
+            '3': 'unscreened',
+        }
+
+        if choice not in stage_map:
+            print("  [!] Invalid selection.")
+            pause()
+            continue
+
+        stage = stage_map[choice]
+        label, icon = _STAGE_LABELS[stage]
+        papers = get_paper_list_by_stage(project_id, stage)
+
+        clear_screen()
+        print(f"\n  {icon} {label} papers ({len(papers)} total) — {project_name}")
+        print("  " + "═" * 80)
+
+        if not papers:
+            print("  (none)")
+        else:
+            for p in papers:
+                print(f"  [{p['id']:>3}] [{p['source_db']}] "
+                      f"{(p['title'] or 'No title')[:65]}"
+                      f"{'...' if len(p['title'] or '') > 65 else ''}")
+                print(f"        {p['authors'] or '':<40}  {p['year'] or '----'}  "
+                      f"DOI: {p['doi'] or 'N/A'}")
+                print()
+
+        print("  " + "═" * 80)
+        pause()
+
+
 # --- Project Menu ---
 
 def project_menu(project_id: int, project_name: str) -> None:
     while True:
         clear_screen()
+        border = "=" * (len(project_name) + 13)
+        print(f"{border}")
         print(f"=== PRISMA | {project_name} ===")
+        print(f"{border}")
         print("  1. Import papers (CSV or RIS)")
         print("  2. Start Title/Abstract Screening")
         print("  3. Open a paper DOI in browser")
-        print("  4. Back to Main Menu")
-        print("=" * (len(project_name) + 13))
+        print("  4. View Import Stats")
+        print("  5. Back to Main Menu")
+        print(border)
 
-        choice = input("\n  Select an option (1-4): ").strip()
+        choice = input("\n  Select an option (1-5): ").strip()
 
         if choice == '1':
             import_menu(project_id, project_name)
@@ -130,6 +232,9 @@ def project_menu(project_id: int, project_name: str) -> None:
             pause()
 
         elif choice == '4':
+            stats_menu(project_id, project_name)
+
+        elif choice == '5':
             break
 
 

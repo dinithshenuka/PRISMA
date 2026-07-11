@@ -148,6 +148,50 @@ def update_paper_stage(paper_id: int, stage: str) -> None:
     conn.close()
 
 
+def get_stats_by_source(project_id: int) -> list:
+    """
+    Return per-source-database import statistics for a project.
+
+    Each row contains:
+      source_db, total, included, excluded, skipped (unscreened)
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT
+            COALESCE(source_db, 'Unknown') AS source_db,
+            COUNT(*)                                                      AS total,
+            SUM(CASE WHEN stage = 'title_included'  THEN 1 ELSE 0 END)  AS included,
+            SUM(CASE WHEN stage = 'title_excluded'  THEN 1 ELSE 0 END)  AS excluded,
+            SUM(CASE WHEN stage = 'unscreened'      THEN 1 ELSE 0 END)  AS skipped
+        FROM papers
+        WHERE project_id = ?
+        GROUP BY source_db
+        ORDER BY source_db
+    ''', (project_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+
+def get_paper_list_by_stage(project_id: int, stage: str) -> list:
+    """
+    Return id, title, authors, year, doi for all papers in a given stage.
+    stage can be 'title_included', 'title_excluded', or 'unscreened'.
+    """
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT id, title, authors, year, doi, source_db
+        FROM papers
+        WHERE project_id = ? AND stage = ?
+        ORDER BY source_db, id
+    ''', (project_id, stage))
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+
 def get_doi_by_paper_id(paper_id: int) -> str | None:
     """Return the DOI string for a given paper ID."""
     conn = get_db()
