@@ -58,16 +58,22 @@ def project_menu(project_id: int, project_name: str) -> None:
         elif choice == '4':
             clear_screen()
             print("\n  Full-Text Retrieval & DOI Options:")
-            print("    [1] Start Watchdog Session (Auto-catch & rename from ~/Downloads)")
-            print("    [2] Open a single paper ID in browser (Manual check)")
+            print("    [1] Start Watchdog Session for ✅ Included papers (PRISMA Standard)")
+            print("    [2] Start Watchdog Session for ⏭  Unscreened papers")
+            print("    [3] Open a single paper ID in browser (Manual check)")
             print("    [0] Back")
             subchoice = input("\n  Select an option: ").strip()
             if subchoice == '1':
                 from db import get_retrieval_candidates
                 from retrieval import run_watchdog_retrieval_session
-                candidates = get_retrieval_candidates(project_id)
-                run_watchdog_retrieval_session(project_id, project_name, candidates)
+                candidates = get_retrieval_candidates(project_id, stage_filter='title_included')
+                run_watchdog_retrieval_session(project_id, project_name, candidates, stage_label="Included")
             elif subchoice == '2':
+                from db import get_retrieval_candidates
+                from retrieval import run_watchdog_retrieval_session
+                candidates = get_retrieval_candidates(project_id, stage_filter='unscreened')
+                run_watchdog_retrieval_session(project_id, project_name, candidates, stage_label="Unscreened")
+            elif subchoice == '3':
                 try:
                     pid = int(input("\n  Enter the paper's Database ID: ").strip())
                     doi = get_doi_by_paper_id(pid)

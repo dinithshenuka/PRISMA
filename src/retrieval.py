@@ -67,12 +67,12 @@ def _is_download_stable(pdf_path: Path) -> bool:
         return False
 
 
-def run_watchdog_retrieval_session(project_id: int, project_name: str, candidates: list) -> None:
+def run_watchdog_retrieval_session(project_id: int, project_name: str, candidates: list, stage_label: str = "Included") -> None:
     """Run the interactive watchdog loop over eligible candidate papers."""
     if not candidates:
         clear_screen()
-        print(f"\n  [!] No eligible papers pending Full-Text Retrieval for '{project_name}'.")
-        print("      (Papers must have a valid DOI and be either Included or Unscreened without a PDF.)")
+        print(f"\n  [!] No eligible '{stage_label}' papers pending Full-Text Retrieval for '{project_name}'.")
+        print(f"      (Check that your {stage_label.lower()} papers have a valid DOI and don't already have a linked PDF.)")
         pause()
         return
 

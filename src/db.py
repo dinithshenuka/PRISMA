@@ -373,19 +373,30 @@ def get_project_pdf_dir(project_id: int, project_name: str) -> str:
     return os.path.join(BASE_DIR, 'data', 'pdfs', f"{safe_name}_{project_id}")
 
 
-def get_retrieval_candidates(project_id: int) -> list:
-    """Return papers eligible for full-text PDF retrieval (title_included or unscreened)."""
+def get_retrieval_candidates(project_id: int, stage_filter: str = 'title_included') -> list:
+    """Return papers eligible for full-text PDF retrieval filtered by stage."""
     conn = get_db()
     cursor = conn.cursor()
-    cursor.execute('''
-        SELECT id, title, authors, year, doi, source_db, stage, pdf_path
-        FROM papers
-        WHERE project_id = ?
-          AND stage IN ('title_included', 'unscreened')
-          AND (pdf_path IS NULL OR pdf_path = '')
-          AND doi IS NOT NULL AND doi != ''
-        ORDER BY CASE WHEN stage = 'title_included' THEN 0 ELSE 1 END, id
-    ''', (project_id,))
+    if stage_filter == 'all':
+        cursor.execute('''
+            SELECT id, title, authors, year, doi, source_db, stage, pdf_path
+            FROM papers
+            WHERE project_id = ?
+              AND stage IN ('title_included', 'unscreened')
+              AND (pdf_path IS NULL OR pdf_path = '')
+              AND doi IS NOT NULL AND doi != ''
+            ORDER BY CASE WHEN stage = 'title_included' THEN 0 ELSE 1 END, id
+        ''', (project_id,))
+    else:
+        cursor.execute('''
+            SELECT id, title, authors, year, doi, source_db, stage, pdf_path
+            FROM papers
+            WHERE project_id = ?
+              AND stage = ?
+              AND (pdf_path IS NULL OR pdf_path = '')
+              AND doi IS NOT NULL AND doi != ''
+            ORDER BY id
+        ''', (project_id, stage_filter))
     rows = cursor.fetchall()
     conn.close()
     return rows
