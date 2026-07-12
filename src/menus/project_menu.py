@@ -37,7 +37,7 @@ def project_menu(project_id: int, project_name: str) -> None:
         print("  1. Import papers (CSV or RIS)")
         print("  2. Manage Exclusion Criteria")
         print("  3. Start Title/Abstract Screening")
-        print("  4. Open a paper DOI in browser")
+        print("  4. Full-Text Retrieval (Watchdog Session)")
         print("  5. View Import Stats")
         print("  6. Deduplicate papers")
         print("  7. Back to Main Menu")
@@ -56,16 +56,28 @@ def project_menu(project_id: int, project_name: str) -> None:
             run_screening_session(project_id, papers)
 
         elif choice == '4':
-            try:
-                pid = int(input("\n  Enter the paper's Database ID: ").strip())
-                doi = get_doi_by_paper_id(pid)
-                if not doi:
-                    print("  [!] No DOI found for that paper ID.")
-                else:
-                    _open_doi_in_browser(doi)
-            except ValueError:
-                print("  [!] Invalid ID.")
-            pause()
+            clear_screen()
+            print("\n  Full-Text Retrieval & DOI Options:")
+            print("    [1] Start Watchdog Session (Auto-catch & rename from ~/Downloads)")
+            print("    [2] Open a single paper ID in browser (Manual check)")
+            print("    [0] Back")
+            subchoice = input("\n  Select an option: ").strip()
+            if subchoice == '1':
+                from db import get_retrieval_candidates
+                from retrieval import run_watchdog_retrieval_session
+                candidates = get_retrieval_candidates(project_id)
+                run_watchdog_retrieval_session(project_id, project_name, candidates)
+            elif subchoice == '2':
+                try:
+                    pid = int(input("\n  Enter the paper's Database ID: ").strip())
+                    doi = get_doi_by_paper_id(pid)
+                    if not doi:
+                        print("  [!] No DOI found for that paper ID.")
+                    else:
+                        _open_doi_in_browser(doi)
+                except ValueError:
+                    print("  [!] Invalid ID.")
+                pause()
 
         elif choice == '5':
             stats_menu(project_id, project_name)

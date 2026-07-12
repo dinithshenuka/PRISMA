@@ -6,10 +6,11 @@ import os
 
 # Maps a paper's stage value → (human label, icon)
 STAGE_LABELS: dict[str, tuple[str, str]] = {
-    'title_included': ('Included',             '✅'),
-    'title_excluded': ('Excluded',             '❌'),
-    'unscreened':     ('Skipped / Unscreened', '⏭ '),
-    'duplicate':      ('Duplicates',           '🔁'),
+    'title_included':     ('Included (No PDF)',      '✅'),
+    'fulltext_retrieved': ('Full-Text PDF Saved',    '📄'),
+    'title_excluded':     ('Excluded',               '❌'),
+    'unscreened':         ('Skipped / Unscreened',   '⏭ '),
+    'duplicate':          ('Duplicates',             '🔁'),
 }
 
 

@@ -60,12 +60,13 @@ The app is fully menu-driven — no arguments needed.
 
 Each paper moves through these stages as you work:
 
-| Stage            | Meaning                                      |
-|------------------|----------------------------------------------|
-| `unscreened`     | Not yet reviewed                             |
-| `title_included` | Passed title/abstract screening              |
-| `title_excluded` | Rejected at title/abstract stage             |
-| `duplicate`      | Flagged as a duplicate and removed from flow |
+| Stage                | Meaning                                      |
+|----------------------|----------------------------------------------|
+| `unscreened`         | Not yet reviewed                             |
+| `title_included`     | Passed title/abstract screening (pending PDF)|
+| `fulltext_retrieved` | Full-text PDF successfully captured & linked |
+| `title_excluded`     | Rejected at title/abstract stage             |
+| `duplicate`          | Flagged as a duplicate and removed from flow |
 
 ---
 
@@ -77,6 +78,7 @@ PRISMA/
 │   ├── prisma_cli.py       # Entry point — main menu only
 │   ├── db.py               # SQLite database layer + all queries
 │   ├── screening.py        # Interactive title/abstract screening session
+│   ├── retrieval.py        # Interactive full-text PDF retrieval watchdog
 │   ├── importers/          # Per-database CSV/RIS parsers
 │   │   ├── base.py         #   Shared parsing logic
 │   │   ├── ieee.py
@@ -94,8 +96,10 @@ PRISMA/
 │       └── project_menu.py #   Per-project navigation
 ├── data/
 │   ├── prisma.db           # Local SQLite database (auto-created)
-│   └── imports/
-│       └── <project>/      # Drop your exported database files here
+│   ├── imports/
+│   │   └── <project>/      # Drop your exported database files here
+│   └── pdfs/
+│       └── <project>/      # Auto-saved and standardized full-text PDFs
 └── Makefile
 ```
 

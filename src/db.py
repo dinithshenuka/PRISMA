@@ -176,10 +176,11 @@ def get_stats_by_source(project_id: int) -> list:
         SELECT
             COALESCE(source_db, 'Unknown') AS source_db,
             COUNT(*)                                                       AS total,
-            SUM(CASE WHEN stage = 'title_included'  THEN 1 ELSE 0 END)   AS included,
+            SUM(CASE WHEN stage IN ('title_included', 'fulltext_retrieved') THEN 1 ELSE 0 END) AS included,
             SUM(CASE WHEN stage = 'title_excluded'  THEN 1 ELSE 0 END)   AS excluded,
             SUM(CASE WHEN stage = 'unscreened'      THEN 1 ELSE 0 END)   AS skipped,
-            SUM(CASE WHEN stage = 'duplicate'        THEN 1 ELSE 0 END)   AS duplicates
+            SUM(CASE WHEN stage = 'duplicate'       THEN 1 ELSE 0 END)   AS duplicates,
+            SUM(CASE WHEN stage = 'fulltext_retrieved' OR (pdf_path IS NOT NULL AND pdf_path != '') THEN 1 ELSE 0 END) AS pdfs_retrieved
         FROM papers
         WHERE project_id = ?
         GROUP BY source_db
@@ -192,13 +193,13 @@ def get_stats_by_source(project_id: int) -> list:
 
 def get_paper_list_by_stage(project_id: int, stage: str) -> list:
     """
-    Return id, title, authors, year, doi, source_db, exclusion_reason for all papers in a given stage.
-    stage can be 'title_included', 'title_excluded', or 'unscreened'.
+    Return id, title, authors, year, doi, source_db, exclusion_reason, pdf_path for all papers in a given stage.
+    stage can be 'title_included', 'title_excluded', 'unscreened', 'duplicate', or 'fulltext_retrieved'.
     """
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT id, title, authors, year, doi, source_db, exclusion_reason
+        SELECT id, title, authors, year, doi, source_db, exclusion_reason, pdf_path
         FROM papers
         WHERE project_id = ? AND stage = ?
         ORDER BY source_db, id
@@ -362,3 +363,38 @@ def get_project_dir(project_id: int, project_name: str) -> str:
     if not safe_name:
         safe_name = "project"
     return os.path.join(BASE_DIR, 'data', 'imports', f"{safe_name}_{project_id}")
+
+
+def get_project_pdf_dir(project_id: int, project_name: str) -> str:
+    """Return the canonical PDF download directory path for a project."""
+    safe_name = re.sub(r'[^a-zA-Z0-9]', '_', project_name).strip('_').lower()
+    if not safe_name:
+        safe_name = "project"
+    return os.path.join(BASE_DIR, 'data', 'pdfs', f"{safe_name}_{project_id}")
+
+
+def get_retrieval_candidates(project_id: int) -> list:
+    """Return papers eligible for full-text PDF retrieval (title_included or unscreened)."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT id, title, authors, year, doi, source_db, stage, pdf_path
+        FROM papers
+        WHERE project_id = ?
+          AND stage IN ('title_included', 'unscreened')
+          AND (pdf_path IS NULL OR pdf_path = '')
+          AND doi IS NOT NULL AND doi != ''
+        ORDER BY CASE WHEN stage = 'title_included' THEN 0 ELSE 1 END, id
+    ''', (project_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+
+def update_paper_pdf(paper_id: int, pdf_path: str, stage: str = 'fulltext_retrieved') -> None:
+    """Set the pdf_path and stage for a paper upon successful retrieval."""
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE papers SET pdf_path = ?, stage = ? WHERE id = ?", (pdf_path, stage, paper_id))
+    conn.commit()
+    conn.close()

@@ -12,43 +12,48 @@ _DRILL_OPTIONS: dict[str, str] = {
     '2': 'title_excluded',
     '3': 'unscreened',
     '4': 'duplicate',
+    '5': 'fulltext_retrieved',
 }
 
 
 def _print_summary_table(rows: list, project_name: str) -> None:
     """Render the per-database statistics table."""
     print(f"\n  Import Statistics — {project_name}")
-    print("  " + "═" * 62)
-    print(f"  {'Database':<20} {'Total':>6}  {'✅ Incl':>8}  {'❌ Excl':>8}  {'⏭  Skip':>8}")
-    print("  " + "─" * 62)
+    print("  " + "═" * 72)
+    print(f"  {'Database':<20} {'Total':>6}  {'✅ Incl':>8}  {'📄 PDFs':>8}  {'❌ Excl':>8}  {'⏭  Skip':>8}")
+    print("  " + "─" * 72)
 
-    totals = [0, 0, 0, 0, 0]
+    totals = [0, 0, 0, 0, 0, 0]
     for r in rows:
+        pdfs = r.get('pdfs_retrieved', 0)
         print(
             f"  {r['source_db']:<20} "
             f"{r['total']:>6}  "
             f"{r['included']:>8}  "
+            f"{pdfs:>8}  "
             f"{r['excluded']:>8}  "
             f"{r['skipped']:>8}"
         )
         totals[0] += r['total']
         totals[1] += r['included']
-        totals[2] += r['excluded']
-        totals[3] += r['skipped']
-        totals[4] += r['duplicates']
+        totals[2] += pdfs
+        totals[3] += r['excluded']
+        totals[4] += r['skipped']
+        totals[5] += r['duplicates']
 
-    print("  " + "─" * 62)
+    print("  " + "─" * 72)
     print(
         f"  {'TOTAL':<20} "
         f"{totals[0]:>6}  "
         f"{totals[1]:>8}  "
         f"{totals[2]:>8}  "
-        f"{totals[3]:>8}"
+        f"{totals[3]:>8}  "
+        f"{totals[4]:>8}"
     )
-    print("  " + "═" * 62)
+    print("  " + "═" * 72)
 
-    if totals[4] > 0:
-        print(f"\n  🔁 Total Duplicates Removed: {totals[4]}")
+    if totals[5] > 0:
+        print(f"\n  🔁 Total Duplicates Removed: {totals[5]}")
 
 
 def _print_paper_list(papers: list, label: str, icon: str, project_name: str) -> None:
@@ -68,6 +73,9 @@ def _print_paper_list(papers: list, label: str, icon: str, project_name: str) ->
             reason_str = ""
             if 'exclusion_reason' in p.keys() and p['exclusion_reason']:
                 reason_str = f" | Excluded: {p['exclusion_reason']}"
+            if 'pdf_path' in p.keys() and p['pdf_path']:
+                import os
+                reason_str += f" | PDF: {os.path.basename(p['pdf_path'])}"
                 
             print(f"        {p['authors'] or '':<40}  {p['year'] or '----'}  "
                   f"DOI: {p['doi'] or 'N/A'}{reason_str}")
@@ -91,10 +99,11 @@ def stats_menu(project_id: int, project_name: str) -> None:
         _print_summary_table(rows, project_name)
 
         print("\n  View list:")
-        print("    [1] ✅ Included papers")
+        print("    [1] ✅ Included papers (No PDF)")
         print("    [2] ❌ Excluded papers")
         print("    [3] ⏭  Skipped / Unscreened papers")
         print("    [4] 🔁 Duplicate papers")
+        print("    [5] 📄 Full-Text PDF Saved")
         print("    [0] Back")
 
         choice = input("\n  Select an option: ").strip()
