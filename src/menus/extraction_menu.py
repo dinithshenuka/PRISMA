@@ -1,7 +1,7 @@
 """
 menus/extraction_menu.py — Manage extraction schema and run LLM extraction.
 """
-from db import add_extraction_column, get_extraction_schema, delete_extraction_column, get_paper_list_by_stage
+from db import add_extraction_column, get_extraction_schema, delete_extraction_column, get_paper_list_by_stage, update_paper_stage
 from menus.utils import clear_screen, pause
 from extraction import get_groq_client, extract_text_from_pdf, run_groq_extraction, export_to_csv
 import os
@@ -116,40 +116,50 @@ def run_extraction(project_id: int, project_name: str):
         
     print(f"\n  Starting extraction for {len(papers)} papers...\n")
     
-    extracted_data = []
+    extracted_count = 0
+    out_csv = None
     
-    for idx, p in enumerate(papers, 1):
-        pdf_path = p['pdf_path']
-        print(f"  [{idx}/{len(papers)}] Processing ID: {p['id']} - {p['title'][:50]}...")
+    try:
+        for idx, p in enumerate(papers, 1):
+            pdf_path = p['pdf_path']
+            print(f"  [{idx}/{len(papers)}] Processing ID: {p['id']} - {p['title'][:50]}...")
+            
+            if not pdf_path or not os.path.exists(pdf_path):
+                print(f"      [!] PDF not found at {pdf_path}")
+                continue
+                
+            text = extract_text_from_pdf(pdf_path)
+            if not text:
+                print("      [!] Could not extract text from PDF.")
+                continue
+                
+            print("      Sending to Groq LLM...")
+            data = run_groq_extraction(text, schema, client)
+            
+            if data:
+                # Attach base metadata
+                row = {
+                    'paper_id': p['id'],
+                    'title': p['title'],
+                    'doi': p['doi']
+                }
+                row.update(data)
+                
+                # Save incrementally
+                out_csv = export_to_csv(project_name, project_id, schema, [row])
+                update_paper_stage(p['id'], 'extracted')
+                extracted_count += 1
+                
+                print("      ✅ Extraction successful and saved.")
+            else:
+                print("      ❌ Failed to extract data.")
+                
+    except KeyboardInterrupt:
+        print("\n\n  ⚠️  Extraction interrupted by user.")
         
-        if not pdf_path or not os.path.exists(pdf_path):
-            print(f"      [!] PDF not found at {pdf_path}")
-            continue
-            
-        text = extract_text_from_pdf(pdf_path)
-        if not text:
-            print("      [!] Could not extract text from PDF.")
-            continue
-            
-        print("      Sending to Groq LLM...")
-        data = run_groq_extraction(text, schema, client)
-        
-        if data:
-            # Attach base metadata
-            row = {
-                'paper_id': p['id'],
-                'title': p['title'],
-                'doi': p['doi']
-            }
-            row.update(data)
-            extracted_data.append(row)
-            print("      ✅ Extraction successful.")
-        else:
-            print("      ❌ Failed to extract data.")
-            
-    if extracted_data:
-        out_csv = export_to_csv(project_name, project_id, schema, extracted_data)
-        print(f"\n  🎉 Extraction complete! Saved to:\n  {out_csv}")
+    if extracted_count > 0:
+        print(f"\n  🎉 Extraction complete! {extracted_count} papers successfully processed.")
+        print(f"  Saved to:\n  {out_csv}")
     else:
         print("\n  [!] No data was successfully extracted.")
         

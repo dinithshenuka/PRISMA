@@ -13,6 +13,7 @@ _DRILL_OPTIONS: dict[str, str] = {
     '3': 'unscreened',
     '4': 'duplicate',
     '5': 'fulltext_retrieved',
+    '6': 'extracted',
 }
 
 
@@ -20,40 +21,44 @@ def _print_summary_table(rows: list, project_name: str) -> None:
     """Render the per-database statistics table."""
     print(f"\n  Import Statistics — {project_name}")
     print("  " + "═" * 72)
-    print(f"  {'Database':<20} {'Total':>6}  {'✅ Incl':>8}  {'📄 PDFs':>8}  {'❌ Excl':>8}  {'⏭  Skip':>8}")
-    print("  " + "─" * 72)
+    print(f"  {'Database':<20} {'Total':>6}  {'✅ Incl':>8}  {'📄 PDFs':>8}  {'🧠 Extr':>8}  {'❌ Excl':>8}  {'⏭  Skip':>8}")
+    print("  " + "─" * 84)
 
-    totals = [0, 0, 0, 0, 0, 0]
+    totals = [0, 0, 0, 0, 0, 0, 0]
     for r in rows:
         pdfs = r.get('pdfs_retrieved', 0)
+        extr = r.get('extracted', 0)
         print(
             f"  {r['source_db']:<20} "
             f"{r['total']:>6}  "
             f"{r['included']:>8}  "
             f"{pdfs:>8}  "
+            f"{extr:>8}  "
             f"{r['excluded']:>8}  "
             f"{r['skipped']:>8}"
         )
         totals[0] += r['total']
         totals[1] += r['included']
         totals[2] += pdfs
-        totals[3] += r['excluded']
-        totals[4] += r['skipped']
-        totals[5] += r['duplicates']
+        totals[3] += extr
+        totals[4] += r['excluded']
+        totals[5] += r['skipped']
+        totals[6] += r['duplicates']
 
-    print("  " + "─" * 72)
+    print("  " + "─" * 84)
     print(
         f"  {'TOTAL':<20} "
         f"{totals[0]:>6}  "
         f"{totals[1]:>8}  "
         f"{totals[2]:>8}  "
         f"{totals[3]:>8}  "
-        f"{totals[4]:>8}"
+        f"{totals[4]:>8}  "
+        f"{totals[5]:>8}"
     )
-    print("  " + "═" * 72)
+    print("  " + "═" * 84)
 
-    if totals[5] > 0:
-        print(f"\n  🔁 Total Duplicates Removed: {totals[5]}")
+    if totals[6] > 0:
+        print(f"\n  🔁 Total Duplicates Removed: {totals[6]}")
 
 
 def _print_paper_list(papers: list, label: str, icon: str, project_name: str) -> None:
@@ -104,6 +109,7 @@ def stats_menu(project_id: int, project_name: str) -> None:
         print("    [3] ⏭  Skipped / Unscreened papers")
         print("    [4] 🔁 Duplicate papers")
         print("    [5] 📄 Full-Text PDF Saved")
+        print("    [6] 🧠 Data Extracted")
         print("    [0] Back")
 
         choice = input("\n  Select an option: ").strip()

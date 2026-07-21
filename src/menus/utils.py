@@ -8,6 +8,7 @@ import os
 STAGE_LABELS: dict[str, tuple[str, str]] = {
     'title_included':     ('Included (No PDF)',      '✅'),
     'fulltext_retrieved': ('Full-Text PDF Saved',    '📄'),
+    'extracted':          ('Data Extracted',         '🧠'),
     'title_excluded':     ('Excluded',               '❌'),
     'unscreened':         ('Skipped / Unscreened',   '⏭ '),
     'duplicate':          ('Duplicates',             '🔁'),

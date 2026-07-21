@@ -186,11 +186,12 @@ def get_stats_by_source(project_id: int) -> list:
         SELECT
             COALESCE(source_db, 'Unknown') AS source_db,
             COUNT(*)                                                       AS total,
-            SUM(CASE WHEN stage IN ('title_included', 'fulltext_retrieved') THEN 1 ELSE 0 END) AS included,
+            SUM(CASE WHEN stage IN ('title_included', 'fulltext_retrieved', 'extracted') THEN 1 ELSE 0 END) AS included,
             SUM(CASE WHEN stage = 'title_excluded'  THEN 1 ELSE 0 END)   AS excluded,
             SUM(CASE WHEN stage = 'unscreened'      THEN 1 ELSE 0 END)   AS skipped,
             SUM(CASE WHEN stage = 'duplicate'       THEN 1 ELSE 0 END)   AS duplicates,
-            SUM(CASE WHEN stage = 'fulltext_retrieved' OR (pdf_path IS NOT NULL AND pdf_path != '') THEN 1 ELSE 0 END) AS pdfs_retrieved
+            SUM(CASE WHEN stage IN ('fulltext_retrieved', 'extracted') OR (pdf_path IS NOT NULL AND pdf_path != '') THEN 1 ELSE 0 END) AS pdfs_retrieved,
+            SUM(CASE WHEN stage = 'extracted'       THEN 1 ELSE 0 END)   AS extracted
         FROM papers
         WHERE project_id = ?
         GROUP BY source_db
