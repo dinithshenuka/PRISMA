@@ -13,6 +13,7 @@ from menus.import_menu import import_menu
 from menus.stats_menu import stats_menu
 from menus.dedup_menu import dedup_menu
 from menus.criteria_menu import criteria_menu
+from menus.extraction_menu import extraction_menu
 
 
 def _open_doi_in_browser(doi: str) -> None:
@@ -40,10 +41,11 @@ def project_menu(project_id: int, project_name: str) -> None:
         print("  4. Full-Text Retrieval (Watchdog Session)")
         print("  5. View Import Stats")
         print("  6. Deduplicate papers")
-        print("  7. Back to Main Menu")
+        print("  7. Data Extraction (LLM)")
+        print("  8. Back to Main Menu")
         print(border)
 
-        choice = input("\n  Select an option (1-7): ").strip()
+        choice = input("\n  Select an option (1-8): ").strip()
 
         if choice == '1':
             import_menu(project_id, project_name)
@@ -92,4 +94,7 @@ def project_menu(project_id: int, project_name: str) -> None:
             dedup_menu(project_id, project_name)
 
         elif choice == '7':
+            extraction_menu(project_id, project_name)
+
+        elif choice == '8':
             break

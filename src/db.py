@@ -69,6 +69,16 @@ def init_db() -> None:
         )
     ''')
 
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS extraction_schema (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id  INTEGER NOT NULL,
+            column_name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            FOREIGN KEY (project_id) REFERENCES projects (id)
+        )
+    ''')
+
     conn.commit()
     conn.close()
 
@@ -407,5 +417,30 @@ def update_paper_pdf(paper_id: int, pdf_path: str, stage: str = 'fulltext_retrie
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("UPDATE papers SET pdf_path = ?, stage = ? WHERE id = ?", (pdf_path, stage, paper_id))
+    conn.commit()
+    conn.close()
+
+
+# --- Extraction Schema Operations ---
+
+def add_extraction_column(project_id: int, column_name: str, description: str) -> None:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO extraction_schema (project_id, column_name, description) VALUES (?, ?, ?)", (project_id, column_name, description))
+    conn.commit()
+    conn.close()
+
+def get_extraction_schema(project_id: int) -> list:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, column_name, description FROM extraction_schema WHERE project_id = ? ORDER BY id", (project_id,))
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
+
+def delete_extraction_column(column_id: int) -> None:
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM extraction_schema WHERE id = ?", (column_id,))
     conn.commit()
     conn.close()

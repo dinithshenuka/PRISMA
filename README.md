@@ -1,6 +1,6 @@
 # PRISMA
 
-A CLI tool for running a [PRISMA](https://www.prisma-statement.org/) systematic literature review (SLR) — import papers from multiple academic databases, deduplicate, screen by title/abstract, and track full-text retrieval, all from the terminal with zero external dependencies.
+A CLI tool for running a [PRISMA](https://www.prisma-statement.org/) systematic literature review (SLR) — import papers from multiple academic databases, deduplicate, screen by title/abstract, track full-text retrieval, and extract data via LLMs, all from the terminal.
 
 ## PRISMA 2020 Documents
 
@@ -15,7 +15,7 @@ A CLI tool for running a [PRISMA](https://www.prisma-statement.org/) systematic 
 ## Requirements
 
 - Python 3.10+
-- No external packages — pure stdlib only
+- Dependencies listed in `requirements.txt` (required for LLM data extraction)
 
 ---
 
@@ -41,6 +41,7 @@ The app is fully menu-driven — no arguments needed.
 4. **Screen by title/abstract** — go through papers one-by-one and mark each as `include`, `exclude`, or `skip`. Open the DOI in your browser mid-session.
 5. **View stats** — see a live breakdown of imported, included, excluded, and skipped counts per database, with drill-down paper lists.
 6. **Full-text retrieval** — open any paper's DOI directly from the project menu to track down PDFs.
+7. **Data Extraction (LLM)** — automatically parse downloaded PDFs and extract structured data into a CSV using the Groq API.
 
 
 ## Supported Import Formats
@@ -79,6 +80,7 @@ PRISMA/
 │   ├── db.py               # SQLite database layer + all queries
 │   ├── screening.py        # Interactive title/abstract screening session
 │   ├── retrieval.py        # Interactive full-text PDF retrieval watchdog
+│   ├── extraction.py       # LLM integration (Groq) and PDF parsing (pypdf)
 │   ├── importers/          # Per-database CSV/RIS parsers
 │   │   ├── base.py         #   Shared parsing logic
 │   │   ├── ieee.py
@@ -93,6 +95,7 @@ PRISMA/
 │       ├── import_menu.py  #   File selection + import flow
 │       ├── stats_menu.py   #   Stats table + drill-down lists
 │       ├── dedup_menu.py   #   Deduplication session
+│       ├── extraction_menu.py # Manage schemas and run batch extraction
 │       └── project_menu.py #   Per-project navigation
 ├── data/
 │   ├── prisma.db           # Local SQLite database (auto-created)
